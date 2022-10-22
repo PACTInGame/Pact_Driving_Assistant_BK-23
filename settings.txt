@@ -6,7 +6,7 @@ on <-- Blind spot warning
 on <-- Cross traffic warning
 on <-- Light assist
 on <-- Park assist
-on <-- Emergency assist
+off <-- Emergency assist
 on <-- Lane assist
 on <-- Cop aid system
 on <-- Automatic Emergency Braking

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import math
 import pyautogui
+
+import PSC
 import active_lane_keeping
 import bus_routes
 import hud_window
@@ -130,6 +132,7 @@ engine_type = "combustion"
 # button 66, 67 = menu calculate
 # button 68 = auto indicators
 # button 69 = strobe assist
+# button 70 = ESP
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -148,7 +151,7 @@ def window():
     global root
     global label, warningImage, crossImage, preWarningImage, label2
     root = tk.Tk()
-    # The image must be stored to Tk or it will be garbage collected.
+    # The image must be stored to Tk, or it will be garbage collected.
     preWarningImage = tk.PhotoImage(file='data\\preacute.png')
     warningImage = tk.PhotoImage(file='data\\acute.png')
     label = tk.Label(root, image=warningImage, bg='black')
@@ -211,8 +214,10 @@ def outgauge_packet(outgauge, packet):
             packets = 0
             if active_lane_prep or active_lane:
                 backup = steering
+
                 steering, actual = active_lane_keeping.calculate_steering(polygons_r, polygons_l, own_x, own_y,
                                                                           previous_steering, previous_steering2)
+
 
                 if steering == 0:
                     steering = backup
@@ -652,13 +657,13 @@ def bus_announce_next_stop():
 own_speed_mci = 0
 own_z = 0
 timers_timer = 0
-
+own_previous_steering = 0
+pscActive = False
 
 def get_car_data(insim, MCI):
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
-    global own_speed_mci, own_z, timers_timer, steering
-    print(auto_siren)
+    global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive
     if time.time() - time_last_check > 0.1:
         time_last_check = time.time()
         cars_previous_speed = temp_previous_speed
@@ -689,6 +694,23 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
+
+        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) :
+            pscActive = True
+            send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
+            wheel_support.brake_slow()
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % VJOY_AXIS)
+
+
+        elif pscActive:
+            pscActive = False
+            if own_control_mode == 2:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+
+            del_button(70)
+        own_previous_steering = own_steering
 
         if settings.forward_collision_warning == "^2" and not siren:
             collision_warning()
@@ -1367,9 +1389,8 @@ def collision_warning():
                                                                                      settings.collision_warning_distance,
                                                                                      own_warn_multi,
                                                                                      own_vehicle_length)
-    if collision_warning_intensity == 1 and new_pre_warn:
+    if collision_warning_intensity == 1 and new_pre_warn and settings.head_up_display:
         new_pre_warn = False
-        print("PREWARN")
         hud_image = Thread(target=change_image_prewarn)
         hud_image.start()
 
@@ -1381,7 +1402,7 @@ def collision_warning():
             hud_image.start()
         new_warning = True
 
-    elif collision_warning_intensity > 1 and timer_collision_warning_sound == 0 and new_warning:
+    elif collision_warning_intensity > 1 and timer_collision_warning_sound == 0 and new_warning and settings.head_up_display:
         timer_collision_warning_sound = 10
         hud_image = Thread(target=change_image_warn)
         hud_image.start()
@@ -1933,7 +1954,6 @@ def message_handling(insim, mso):
             route_message = route_message.replace(b"^8", b"")
             route_message = route_message.replace(b"^9", b"")
             route_message = route_message.replace(b"^0", b"")
-
 
             if route2_str in route_message:
                 current_bus_route = "route_2"
