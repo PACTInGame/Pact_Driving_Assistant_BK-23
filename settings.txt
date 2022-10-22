@@ -1,0 +1,15 @@
+Important: Only change the letter in the at the beginning. Do not rearrange this layout. 
+Assistance-Default-Settings ("on", or "off". Space necessary between setting and "<--"):
+on <-- Head-up display
+on <-- Forward collision warning
+on <-- Blind spot warning
+on <-- Cross traffic warning
+on <-- Light assist
+on <-- Park assist
+on <-- Emergency assist
+on <-- Lane assist
+on <-- Cop aid system
+on <-- Automatic Emergency Braking
+early <-- Collision Warning Distance (early, medium, late)
+off <-- Automatic Gearbox (when sequential Gearbox is set in LFS)
+normal <-- Lane departure warning intensity (early, normal, reduced)

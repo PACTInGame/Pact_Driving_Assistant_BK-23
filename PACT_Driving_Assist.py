@@ -1,0 +1,2181 @@
+# -*- coding: utf-8 -*-
+import math
+import pyautogui
+import active_lane_keeping
+import bus_routes
+import hud_window
+import keyboard
+import load_lane_data
+import pyinsim
+import random
+import sys
+import time
+from threading import Thread
+import forward_collision_warning
+import gearbox
+import get_settings
+import helpers
+import park_assist
+import setting
+import wheel_support
+from blind_spot_warning import check_blindspots
+from shapely.geometry import Polygon, Point
+from vehicle import Vehicle
+import tkinter as tk
+
+pyautogui.FAILSAFE = False
+time.sleep(0.2)
+print('PACT DRIVING ASSISTANT VERSION 11.8.6')
+print('Starting.')
+time.sleep(0.2)
+for i in range(21):
+    sys.stdout.write('\r')
+    # the exact output you're looking for:
+    sys.stdout.write("[%-20s] %d%%" % ('=' * i, 5 * i))
+    sys.stdout.flush()
+    time.sleep(0.05)
+print("")
+print('Start successful')
+time.sleep(0.2)
+print('Trying to connect to Live for Speed')
+time.sleep(0.2)
+
+insim = pyinsim.insim(b'127.0.0.1', 29999, Admin=b'', Prefix=b"$",
+                      Flags=pyinsim.ISF_MCI | pyinsim.ISF_LOCAL, Interval=200)
+time.sleep(0.1)
+insim.send(pyinsim.ISP_MSL,
+           Msg=b"PACT Driving Assistant Active")
+print('Loading settings')
+time.sleep(0.1)
+set_def = get_settings.get_settings_from_file()
+settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
+                           set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12])
+cont_def = get_settings.get_controls_from_file()
+SHIFT_UP_KEY = cont_def[0]
+SHIFT_DOWN_KEY = cont_def[1]
+IGNITION_KEY = cont_def[2]
+THROTTLE_AXIS = int(cont_def[3])
+BRAKE_AXIS = int(cont_def[4])
+STEER_AXIS = int(cont_def[5])
+VJOY_AXIS = int(cont_def[6])
+VJOY_AXIS1 = int(VJOY_AXIS) + 1
+VJOY_AXIS2 = int(VJOY_AXIS) + 2
+BRAKE_KEY = cont_def[7]
+ACC_KEY = cont_def[8]
+HANDBRAKE_KEY = cont_def[9]
+print('In case you need help, hit me up on Discord: Robert M.#6244')
+
+players = {}
+cars_on_track = []
+cars_relevant = []
+cars_previous_speed = []
+temp_previous_speed = []
+buttons_on_screen = []
+for i in range(200):
+    buttons_on_screen.append(0)
+own_player_id = -1
+own_speed = 0
+own_rpm = 0
+own_gear = 0
+own_heading = 0
+own_x = 0
+own_y = 0
+own_steering = 0
+own_light = False
+accelerator_pressure = 0
+brake_pressure = 0
+own_gearbox_mode = 0
+own_control_mode = 0
+collision_warning_intensity = 0
+indicators = [0, 0]
+track = "none"
+roleplay = "civil"
+own_player_name = ""
+game = False
+time_last_check = time.time()
+time_menu = time.time()
+start_outgauge_again = False
+text_entry = False
+own_handbrake = False
+collision_warning_not_cop = "^2"
+own_battery_light = False
+auto_clutch = False
+vehicle_model = ""
+vehicle_model_change = False
+current_bus_route = "none"
+brake_light = 0
+own_warn_multi = 1.0
+measuring = False
+measure_param = [0, 0, 0, 0]
+measuring_fast = False
+measuring_very_fast = False
+measure_z = 0
+warn_multi_arr = []
+auto_indicators = "^2"
+auto_siren = "^2"
+engine_type = "combustion"
+
+# button 100-110 = park distance control
+# button 10-15 = HUD
+# button 16 = notifications
+# button 17, 18 = blind spot warning
+# button 19 - 30, 41-45 = menu
+# button 31,32 = waiting in menu
+# button 33 - 40 = roleplay
+# button 41, 42 = notifications
+# button 46 - 48 = lane_buttons
+# button 50 = menu lane
+# button 51-60 = Bus
+# button 61-65 = Police Tracker
+# button 66, 67 = menu calculate
+# button 68 = auto indicators
+# button 69 = strobe assist
+
+# TODO Cross-Traffic-Warning
+# TODO Lane Keep Assist
+# TODO Castle hill 1 sound grand tour
+
+active_lane = False
+car_in_control = False
+previous_steering = 0
+previous_steering2 = 0
+previous_steering3 = 0
+packets = 0
+steering = 0
+
+
+def window():
+    global root
+    global label, warningImage, crossImage, preWarningImage, label2
+    root = tk.Tk()
+    # The image must be stored to Tk or it will be garbage collected.
+    preWarningImage = tk.PhotoImage(file='data\\preacute.png')
+    warningImage = tk.PhotoImage(file='data\\acute.png')
+    label = tk.Label(root, image=warningImage, bg='black')
+    label2 = tk.Label(root, image=preWarningImage, bg='black')
+    crossImage = tk.PhotoImage(file='data\\cross.png')
+    root.configure(background='black')
+    root.overrideredirect(True)
+    root.geometry("200x100+890+550")
+    root.lift()
+    root.wm_attributes("-topmost", True)
+    root.wm_attributes("-disabled", True)
+    root.wm_attributes("-transparentcolor", "black")
+    root.attributes('-alpha', 0.9)
+    root.mainloop()
+
+
+collision_warning_intensity_was = 0
+
+
+def change_image_warn():
+    global root, label, collision_warning_intensity_was
+    label2.pack_forget()
+    label.image = warningImage
+    label.pack()
+    root.update()
+
+
+def change_image_prewarn():
+    global root, label, collision_warning_intensity_was
+    label.pack_forget()
+    label2.image = preWarningImage
+    label2.pack()
+    root.update()
+
+
+def change_image_del():
+    global root, label, collision_warning_intensity_was
+    label.pack_forget()
+    label2.pack_forget()
+
+
+thread_window = Thread(target=window)
+thread_window.start()
+
+
+def get_collision_state():
+    return collision_warning_intensity
+
+
+def outgauge_packet(outgauge, packet):
+    global own_player_id, own_speed, own_rpm, own_gear, accelerator_pressure, brake_pressure, indicators, own_light
+    global own_handbrake, own_battery_light, vehicle_model, right_indicator_timer, left_indicator_timer, brake_light
+    global vehicle_model_change, own_warn_multi, measuring, measure_param, get_brake_dist, measuring_fast, measuring_very_fast
+    global warn_multi_arr, engine_type, active_lane, previous_steering, car_in_control, packets, previous_steering2, previous_steering3
+    global steering
+
+    if game:
+
+        if packets == 10:
+            packets = 0
+            if active_lane_prep or active_lane:
+                backup = steering
+                steering, actual = active_lane_keeping.calculate_steering(polygons_r, polygons_l, own_x, own_y,
+                                                                          previous_steering, previous_steering2)
+
+                if steering == 0:
+                    steering = backup
+
+                if previous_steering3 != actual:
+                    previous_steering = previous_steering2
+                    previous_steering2 = previous_steering
+                previous_steering3 = actual
+            if active_lane:
+                if own_control_mode == 2:
+                    if not car_in_control:
+                        insim.send(pyinsim.ISP_MST,
+                                   Msg=b"/axis %.1i steer" % VJOY_AXIS2)
+
+                        car_in_control = True
+                    wheel_support.brake_slow_steer(steering)
+            elif car_in_control:
+                car_in_control = False
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/axis %.1i steer" % STEER_AXIS)
+        else:
+            packets += 1
+
+        if len(warn_multi_arr) == 3 and get_brake_dist:
+            x = warn_multi_arr[0]
+            x = x + warn_multi_arr[1]
+            x = x + warn_multi_arr[2]
+            x = x / 3
+            warn_multi_arr = []
+            own_warn_multi = x
+            notification("AEB Calibrated", 2)
+            get_brake_dist = False
+
+        if not packet.Car == vehicle_model:
+            vehicle_model_change = True
+            vehicle_model = packet.Car
+
+        if own_player_id == -1:
+            own_player_id = packet.PLID
+            insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_NPL)
+
+        if pyinsim.DL_HANDBRAKE & packet.ShowLights:
+            own_handbrake = True
+        else:
+            own_handbrake = False
+
+        own_player_id = packet.PLID
+        own_gear = packet.Gear
+
+        if not (collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2"):
+            brake_pressure = packet.Brake
+        else:
+            brake_pressure = 0
+
+        brake_light = packet.Brake
+        accelerator_pressure = packet.Throttle
+        own_rpm = packet.RPM
+        own_speed = packet.Speed * 3.6
+
+        if get_brake_dist and brake_pressure > 0.999 and 140 < own_speed_mci < 150 and not measuring and -120 < own_steering < 120:
+            measuring = True
+            measuring_very_fast = True
+
+            measure_param = [own_x, own_y, own_speed_mci, own_z]
+
+        elif get_brake_dist and measure_param[2] - own_speed_mci > 25 and measuring_very_fast:
+            measuring = False
+            measuring_very_fast = False
+            get_brake_dist = False
+            measured_dist = math.sqrt(
+                (own_x - measure_param[0]) * (own_x - measure_param[0]) + (own_y - measure_param[1]) * (
+                        own_y - measure_param[1]))
+            print(str(measured_dist) + " at {} from {}".format(own_speed_mci, measure_param[2]))
+
+            if own_speed_mci < 110:
+                get_brake_dist = True
+
+                measure_param = [0, 0, 0, 0]
+
+            if measured_dist > 9999999:
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+            if not get_brake_dist:
+                warn_multi_tmp = measured_dist / 1450000
+
+                if warn_multi_tmp > 1.0:
+                    diff = warn_multi_tmp - 1
+                    warn_multi_tmp = warn_multi_tmp - diff / 2.5
+                else:
+                    diff = 1 - warn_multi_tmp
+                    warn_multi_tmp = warn_multi_tmp + diff / 2.5
+                warn_multi_arr.append(warn_multi_tmp)
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+        if get_brake_dist and brake_pressure > 0.999 and 90 < own_speed_mci < 100 and not measuring and -120 < own_steering < 120:
+            measuring = True
+            measuring_fast = True
+
+            measure_param = [own_x, own_y, own_speed_mci, own_z]
+
+        elif get_brake_dist and measure_param[2] - own_speed_mci > 25 and measuring_fast:
+            measuring = False
+            measuring_fast = False
+            get_brake_dist = False
+            measured_dist = math.sqrt(
+                (own_x - measure_param[0]) * (own_x - measure_param[0]) + (own_y - measure_param[1]) * (
+                        own_y - measure_param[1]))
+            print(str(measured_dist) + " at {} from {}".format(own_speed_mci, measure_param[2]))
+
+            if own_speed_mci < 60:
+                get_brake_dist = True
+
+                measure_param = [0, 0, 0, 0]
+
+            if measured_dist > 9999999:
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+            if not get_brake_dist:
+                warn_multi_tmp = measured_dist / 900000
+
+                if warn_multi_tmp > 1.0:
+                    diff = warn_multi_tmp - 1
+                    warn_multi_tmp = warn_multi_tmp - diff / 2.5
+                else:
+                    diff = 1 - warn_multi_tmp
+                    warn_multi_tmp = warn_multi_tmp + diff / 2.5
+
+                warn_multi_arr.append(warn_multi_tmp)
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+        if get_brake_dist and brake_pressure > 0.999 and 50 < own_speed_mci < 60 and not measuring and -120 < own_steering < 120:
+            measuring = True
+
+            measure_param = [own_x, own_y, own_speed_mci, own_z]
+
+        elif get_brake_dist and measure_param[
+            2] - own_speed_mci > 25 and measuring and not measuring_fast and not measuring_very_fast:
+            measuring = False
+            get_brake_dist = False
+            measured_dist = math.sqrt(
+                (own_x - measure_param[0]) * (own_x - measure_param[0]) + (own_y - measure_param[1]) * (
+                        own_y - measure_param[1]))
+            print(str(measured_dist) + " at {} from {}".format(own_speed_mci, measure_param[2]))
+
+            if own_speed_mci < 20:
+                get_brake_dist = True
+
+                measure_param = [0, 0, 0, 0]
+
+            if measured_dist > 9999999:
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+            if not get_brake_dist:
+                warn_multi_tmp = measured_dist / 650000
+
+                if warn_multi_tmp > 1.0:
+                    diff = warn_multi_tmp - 1
+                    warn_multi_tmp = warn_multi_tmp - diff / 2.5
+                else:
+                    diff = 1 - warn_multi_tmp
+                    warn_multi_tmp = warn_multi_tmp + diff / 2.5
+                warn_multi_arr.append(warn_multi_tmp)
+                measure_param = [0, 0, 0, 0]
+                get_brake_dist = True
+
+        if measuring and brake_pressure < 0.998:
+            measuring = False
+            measuring_fast = False
+
+            measure_param = [0, 0, 0, 0]
+
+        elif not -120 < own_steering < 120 and measuring:
+            measuring = False
+            measuring_fast = False
+
+            measure_param = [0, 0, 0, 0]
+
+        elif measuring and not -0.3 < own_z / 65536 - measure_param[3] / 65536 < 0.3:
+            measuring = False
+            measuring_fast = False
+
+            measure_param = [0, 0, 0, 0]
+        if b"Batt" in packet.Display1:
+            engine_type = "electric"
+        else:
+            engine_type = "combustion"
+
+        if 0.1 <= packet.Fuel <= 0.102:
+            if engine_type == "combustion":
+                notification("^3Low Fuel", 1)
+            elif engine_type == "electric":
+                notification("^3Low Battery", 1)
+        if 0.048 <= packet.Fuel <= 0.05:
+            if engine_type == "combustion":
+                notification("^1Low Fuel", 1)
+            elif engine_type == "electric":
+                notification("^1Low Battery", 1)
+
+        if not park_assist_active and packet.Fuel < 0.048:
+            send_button(13, pyinsim.ISB_DARK, 119, 116, 4, 4, '^1<<!>>')
+        elif not park_assist_active and 0.05 <= packet.Fuel <= 0.1:
+            send_button(13, pyinsim.ISB_DARK, 119, 116, 4, 4, '^3<<!>>')
+        else:
+            del_button(13)
+
+        if pyinsim.DL_BATTERY & packet.ShowLights:
+            own_battery_light = True
+        else:
+            own_battery_light = False
+
+        if pyinsim.DL_SIGNAL_R & packet.ShowLights:
+            indicators[1] = 1
+            right_indicator_timer = 10
+        else:
+            indicators[1] = 0
+
+        if pyinsim.DL_SIGNAL_L & packet.ShowLights:
+            indicators[0] = 1
+            left_indicator_timer = 10
+        else:
+            indicators[0] = 0
+
+        if pyinsim.DL_FULLBEAM & packet.ShowLights:
+            own_light = True
+        else:
+            own_light = False
+
+        if settings.head_up_display == "^2" or collision_warning_intensity > 0:
+            head_up_display()
+
+
+outgauge = pyinsim.outgauge('127.0.0.1', 30000, outgauge_packet, 30.0)
+
+
+def new_player(insim, npl):
+    global roleplay, own_player_name, game, own_gearbox_mode, own_control_mode, collision_warning_not_cop
+    global auto_clutch
+    players[npl.PLID] = npl
+
+    cars_already_known = []
+    for car in cars_on_track:
+        cars_already_known.append(car.player_id)
+    if npl.PLID not in cars_already_known:
+        cars_on_track.append(Vehicle(0, 0, 0, 0, 0, 0, 0, npl.PLID, 0, 0))
+
+    if npl.PLID == own_player_id:
+        flags = [int(i) for i in str("{0:b}".format(npl.Flags))]
+        if b"[COP]" in npl.PName:
+            roleplay = "cop"
+
+        elif b"[MED]" in npl.PName or b"[RES]" in npl.PName:
+            roleplay = "res"
+
+        elif b"[TOW]" in npl.PName:
+            roleplay = "tow"
+        else:
+            roleplay = "civil"
+            del_button(33)
+            del_button(34)
+        if len(flags) >= 4 and flags[-4] == 1:
+            own_gearbox_mode = 0  # automatic
+        elif len(flags) >= 5 and flags[-5] == 1:
+            own_gearbox_mode = 1  # shifter
+        else:
+            own_gearbox_mode = 2  # sequential
+        if len(flags) >= 10 and flags[-10] == 1:
+            auto_clutch = True
+        else:
+            auto_clutch = False
+        if len(flags) >= 11 and flags[-11] == 1:
+            own_control_mode = 0  # mouse
+        elif (len(flags) >= 12 and flags[-12] == 1) or (len(flags) >= 13 and flags[-13] == 1):
+            own_control_mode = 1  # keyboard
+        else:
+            own_control_mode = 2  # wheel
+        tmp = npl.PName
+
+        tmp = tmp.replace(b"^1", b"")
+        tmp = tmp.replace(b"^2", b"")
+        tmp = tmp.replace(b"^3", b"")
+        tmp = tmp.replace(b"^4", b"")
+        tmp = tmp.replace(b"^5", b"")
+        tmp = tmp.replace(b"^6", b"")
+        tmp = tmp.replace(b"^7", b"")
+        tmp = tmp.replace(b"^8", b"")
+        tmp = tmp.replace(b"^9", b"")
+        own_player_name = tmp.replace(b"^0", b"")
+
+
+def player_left(insim, pll):
+    try:
+        del players[pll.PLID]
+        for car in cars_on_track:
+            if car.player_id == pll.PLID:
+                cars_on_track.remove(car)
+                break
+    except:
+        print("An error occurred in player handling. Typically that's not a problem.")
+
+
+def player_pits(insim, plp):
+    global game
+    try:
+        del players[plp.PLID]
+
+        for car in cars_on_track:
+            if car.player_id == plp.PLID:
+                cars_on_track.remove(car)
+    except:
+        print("An error occurred in player handling. Typically that's not a problem.")
+
+
+updated_cars = []
+num_of_packages_temp = 0
+num_of_packages = 0
+shift_pressed = False
+
+
+def rev_bounce():
+    keyboard.press("i")
+    time.sleep(0.02)
+    keyboard.release("i")
+    time.sleep(0.01)
+    keyboard.press("i")
+    time.sleep(0.02)
+    keyboard.release("i")
+
+
+current_stop = []
+
+
+def bus_route():
+    global bus_next_stop_timer, bus_announce_timer, current_stop, current_bus_route
+
+    try:
+        if (current_stop[1] == "main_station" or current_stop[1] == "east_station" or current_stop[
+            1] == "south_station" or current_stop[
+                1] == "west_station" or current_stop[1] == "main_station_a" or current_stop[1] == "main_station_b" or
+            current_stop[1] == "drifters_corner" or current_stop[1] == "simons_way") and (
+                track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE"):
+            current_bus_route = "none"
+
+    except:
+        pass
+    if not current_bus_route == "none" and track == b"SO":
+        next_stop = bus_routes.stop_dist(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+    elif not current_bus_route == "none" and track == b"KY":
+        next_stop = bus_routes.stop_dist_KY(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+    elif not current_bus_route == "none" and track == b"FE":
+        next_stop = bus_routes.stop_dist_FE(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+
+    elif not current_bus_route == "none" and track == b"BL":
+        next_stop = bus_routes.stop_dist_BL(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+
+    elif not current_bus_route == "none" and track == b"AS":
+        next_stop = bus_routes.stop_dist_AS(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+
+    elif not current_bus_route == "none" and track == b"WE":
+        next_stop = bus_routes.stop_dist_WE(current_bus_route, own_x, own_y)
+
+        for stops in next_stop:
+            if stops[2] < 15 and own_speed < 2 and bus_announce_timer == 0:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+                bus_announce_timer = 120
+
+                bus_routes.play_stop_sound(current_bus_route, track, bus_route_sound, bus_door_sound)
+                bus_next_stop_timer = 40
+                current_stop = stops
+
+
+def bus_announce_next_stop():
+    global current_stop
+    if bus_next_stop_sound:
+        bus_routes.play_stop_sound(current_stop[1], track, bus_route_sound, bus_door_sound)
+    if (current_stop[1] == "main_station" or current_stop[1] == "east_station" or current_stop[
+        1] == "south_station" or current_stop[
+        1] == "west_station" or current_stop[1] == "main_station_a" or current_stop[1] == "main_station_b" or
+            current_stop[1] == "drifters_corner" or current_stop[1] == "simons_way"):
+        current_stop = []
+
+
+own_speed_mci = 0
+own_z = 0
+timers_timer = 0
+
+
+def get_car_data(insim, MCI):
+    global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
+    global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
+    global own_speed_mci, own_z, timers_timer, steering
+    print(auto_siren)
+    if time.time() - time_last_check > 0.1:
+        time_last_check = time.time()
+        cars_previous_speed = temp_previous_speed
+        temp_previous_speed = []
+
+        for i, j in enumerate(cars_on_track):
+
+            if j.player_id == own_player_id:
+                own_speed_mci = j.speed
+                own_x = j.x
+                own_y = j.y
+                own_z = j.z
+                own_heading = j.heading
+                own_steering = j.steer_forces
+
+            temp_previous_speed.append((j.speed, j.player_id))
+
+        [car.update_distance(own_x, own_y, own_z) for car in cars_on_track]
+        [car.update_dynamic(speed[0] - car.speed) for speed in cars_previous_speed for car in cars_on_track if
+         speed[1] == car.player_id and speed[0] - car.speed != 0.0]
+
+        get_relevant_cars()
+
+        timers()
+
+        if settings.park_distance_control == "^2" and not chase:
+            start_park_assistance()
+        if (settings.park_distance_control == "^1" or chase) and park_assist_active:
+            park_assist_active = False
+            [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
+
+        if settings.forward_collision_warning == "^2" and not siren:
+            collision_warning()
+        if settings.blind_spot_warning == "^2":
+            blind_spots()
+        if settings.light_assist == "^2" or auto_indicators == "^2":
+            light_assist()
+        if settings.lane_assist == "^2" and roleplay != "cop":
+            lane_assist()
+        if collision_warning_intensity == 0 and settings.head_up_display == "^1":
+            for i in range(6):
+                del_button(10 + i)
+        if roleplay == "cop" and settings.cop_aid_system == "^2":
+            cop()
+        other_assistances()
+        if track != "none" and own_speed < 120:
+            yield_assist()
+        if helpers.get_shift_buttons():
+            shift_pressed = True
+        else:
+            shift_pressed = False
+        if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and vehicle_model == b"FZ5" and auto_clutch == True and own_control_mode == 2:
+            gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm)
+            if shift_timer == 0 or own_rpm > 7700:
+                if not text_entry and not shift_pressed and own_gear > 1:
+                    gearbox.shift(gear_to_be, own_gear, accelerator_pressure, own_steering)
+                    shift_timer = 7
+        elif settings.automatic_gearbox == "^2" and own_gearbox_mode == 2:
+            if not auto_clutch:
+                notification("^3Gearbox only with Auto-clutch", 4)
+            elif own_control_mode != 2:
+                notification("^3Gearbox only with Wheel", 4)
+            else:
+                notification("^3Gearbox only with FZ5", 4)
+            settings.automatic_gearbox = change_setting(settings.automatic_gearbox)
+        if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
+            bus_route()
+    # DATA RECEIVING ---------------
+
+    updated_this_packet = []
+    [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
+     for data
+     in MCI.Info for car in cars_on_track if car.player_id == data.PLID]
+    [updated_this_packet.append(data.PLID) for data in MCI.Info]
+
+    for data in MCI.Info:
+        if data.PLID not in updated_cars:
+            updated_cars.append(data.PLID)
+
+
+siren = False
+strobe = False
+chase = False
+job = False
+many_cars_close = False
+color_siren_button = "^4"
+
+yield_sound = False
+
+
+def yield_assist():
+    global yield_polygons, yield_sound
+    yield_note = False
+    for poly in yield_polygons:
+        if I_in_rectangle(poly[0]):
+            for car in cars_relevant:
+                if car_in_rectangle(poly[1], car[0].x, car[0].y) and car[0].speed > 20:
+                    yield_note = True
+                else:
+                    try:
+                        if car_in_rectangle(poly[2], car[0].x, car[0].y) and car[0].speed > 20:
+                            yield_note = True
+                    except:
+                        pass
+
+    if yield_note and own_speed > 60 and not yield_sound:
+        notification("^1YIELD", 2)
+        yield_sound = True
+        play_yield_thread = Thread(target=helpers.yield_sound)
+        play_yield_thread.start()
+    elif yield_note and own_speed > 50:
+        notification("^1YIELD", 2)
+    elif yield_note:
+        notification("^3YIELD", 2)
+    if not yield_note and yield_sound:
+        yield_sound = False
+
+
+# TODO Error message when program not connected
+
+
+def I_in_rectangle(polygon):
+    point = Point(own_x / 65536, own_y / 65536)
+    return polygon.contains(point)
+
+
+def car_in_rectangle(polygon, x, y):
+    point = Point(x / 65536, y / 65536)
+    return polygon.contains(point)
+
+
+def cop():
+    if siren or strobe:
+        change_strobe()
+    if strobe:
+        send_button(34, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 115, 90, 7, 4, '{}Strobe'.format(color_siren_button))
+    else:
+        send_button(34, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 115, 90, 7, 4, 'Strobe')
+    if siren:
+        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 115, 97, 6, 4, '{}Siren'.format(color_siren_button))
+    else:
+        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 115, 97, 6, 4, 'Siren')
+
+    if chase and (siren or strobe):
+        for car in cars_on_track:
+            if car.player_id == player_id_to_track:
+                x_chased_car = car.x
+                y_chased_car = car.y
+                speed_chased_car = car.speed
+                tracker(x_chased_car, y_chased_car, speed_chased_car)
+    else:
+        del_button(61)
+        del_button(62)
+
+
+def tracker(x, y, sp):
+    if sp < own_speed - 50:
+        notification("^1SUSPECT SLOW", 1)
+
+    angle_chased_car = helpers.calculate_angle(own_x, x, own_y, y, own_heading)
+
+    if angle_chased_car > 329 or angle_chased_car < 31:
+        str_arrow = "^2STRAIGHT"
+    elif 30 < angle_chased_car < 150:
+        str_arrow = "^3RIGHT -->"
+    elif 149 < angle_chased_car < 210:
+        str_arrow = "^1BEHIND"
+    elif 209 < angle_chased_car < 330:
+        str_arrow = "^3<-- LEFT"
+    else:
+        str_arrow = "error"
+    send_button(61, pyinsim.ISB_DARK, 114, 103, 13, 5, str_arrow)
+    if sp < own_speed - 25:
+        send_button(62, pyinsim.ISB_DARK, 109, 103, 13, 5, '^3{} kph'.format(round(sp)))
+    else:
+        send_button(62, pyinsim.ISB_DARK, 109, 103, 13, 5, '{} kph'.format(round(sp)))
+
+
+def change_siren():
+    global siren, strobe
+    if siren:
+        if auto_siren == "^2":
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/siren off")
+            siren = False
+    else:
+        if auto_siren == "^2":
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/siren slow")
+            siren = True
+            strobe = True
+
+
+def change_strobe():
+    global strobe_timer, color_siren_button
+    if strobe_timer == 0:
+        strobe_timer = 1
+        if many_cars_close:
+            if color_siren_button == "^4":
+                color_siren_button = "^1"
+            else:
+                color_siren_button = "^4"
+
+        if not many_cars_close:
+            color_siren_button = "^4"
+        x = random.choice([1, 2, 3])
+        if not text_entry and not shift_pressed:
+            if x == 1:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 3")
+            elif x == 2:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 7")
+            elif x == 3:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 8")
+
+
+polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+
+string_lane = ""
+
+lane_detected = False
+
+
+def lane_assist():
+    global polygons_r, polygons_l, string_lane, car_in_control, previous_steering, lane_detected
+
+    if polygons_r == Polygon([(0, 0), (0, 1), (1, 0)]) and (track == b"WE" or track == b"BL"):
+        print("loading map data...")
+        if track == b"WE":
+            polygons_r, polygons_l = load_polygons("WE")
+        elif track == b"BL":
+            polygons_r, polygons_l = load_polygons("BL")
+
+        print("map data loaded successfully")
+    elif track == b"WE" or track == b"BL":
+        reduced = False
+        if settings.lane_dep_intensity == "normal":
+            dep_set = 6
+        elif settings.lane_dep_intensity == "early":
+            dep_set = 5
+
+        else:
+            dep_set = 6
+            reduced = True
+        lane_d = False
+        if own_speed > 30 and own_gear > 0 and -400 <= own_steering <= 400:
+            lane_departure_r = False
+            lane_departure_l = False
+            if right_indicator_timer == 0:
+                for p in polygons_r:
+                    point = Point(own_x, own_y)
+                    if p[6].contains(point):
+                        lane_d = True
+
+                        if not p[dep_set - 1].contains(point) and (
+                                (reduced and ema_timer > 3) or not reduced):
+                            right_lane_btn()
+                            lane_departure_r = True
+            if left_indicator_timer == 0:
+                for p in polygons_l:
+                    point = Point(own_x, own_y)
+                    if p[6].contains(point):
+                        lane_d = True
+                        if not p[dep_set - 1].contains(point) and (
+                                (reduced and ema_timer > 3) or not reduced):
+                            left_lane_btn()
+                            lane_departure_l = True
+            lane_detected = lane_d
+            if lane_detected and buttons_on_screen[47] == 0:
+                if reduced:
+                    if string_lane == '^2/ \\':
+                        del_button(48)
+                    string_lane = '^3/ \\'
+                else:
+                    if string_lane == '^3/ \\':
+                        del_button(48)
+                    string_lane = '^2/ \\'
+                send_button(48, pyinsim.ISB_DARK, 119, 85, 5, 8, string_lane)
+            else:
+                del_button(48)
+            if not lane_departure_l and not lane_departure_r and buttons_on_screen[47] == 1:
+                del_button(47)
+            if not lane_departure_l and not lane_departure_r and buttons_on_screen[46] == 1:
+                del_button(46)
+        elif buttons_on_screen[47] == 1:
+            del_button(47)
+        elif buttons_on_screen[46] == 1:
+            del_button(46)
+        else:
+            del_button(48)
+
+
+def right_lane_btn():
+    global lane_btn_timer, ema_timer
+    if buttons_on_screen[46] == 0:
+        del_button(48)
+        send_button(46, pyinsim.ISB_DARK, 119, 120, 6, 8, '^1|')
+    else:
+        del_button(46)
+    lane_btn_timer += 30
+    if 6 <= ema_timer < 14:
+        ema_timer = 14
+    if lane_btn_timer > 450:
+        lane_btn_timer = 450
+    if lane_btn_timer > 400:
+        play_emawarning_thread = Thread(target=helpers.emawarningsound)
+        play_emawarning_thread.start()
+        notification("^1Stay in lane", 3)
+        lane_btn_timer = 100
+
+
+def left_lane_btn():
+    global lane_btn_timer, ema_timer
+    if buttons_on_screen[47] == 0:
+        del_button(48)
+        send_button(47, pyinsim.ISB_DARK, 119, 84, 6, 8, '^1|')
+    else:
+        del_button(47)
+    lane_btn_timer += 40
+    if 6 <= ema_timer < 14:
+        ema_timer = 14
+    if lane_btn_timer > 450:
+        lane_btn_timer = 450
+    if lane_btn_timer > 400:
+        play_emawarning_thread = Thread(target=helpers.emawarningsound)
+        play_emawarning_thread.start()
+        notification("^1Stay in lane", 3)
+        lane_btn_timer = 100
+
+
+def load_polygons(tra):
+    polygons_right, polygons_left = load_lane_data.load(tra)
+
+    return polygons_right, polygons_left
+
+
+def blind_spots():
+    blind_spot_r, blind_spot_l = check_blindspots(cars_relevant, own_x, own_y, own_heading, own_speed)
+    if blind_spot_l:
+        send_button(17, pyinsim.ISB_DARK, 110, 10, 5, 10, '^3!')
+    else:
+        del_button(17)
+    if blind_spot_r:
+        send_button(18, pyinsim.ISB_DARK, 110, 190, 5, 10, '^3!')
+    else:
+        del_button(18)
+
+
+def get_distance(list_of_cars):
+    return list_of_cars[0].distance
+
+
+def get_relevant_cars():
+    global cars_relevant, many_cars_close
+    temp_list = []
+
+    for i, j in enumerate(cars_on_track):
+        if j.distance < 130 and not j.distance == 0:
+            angle_temp = helpers.calculate_angle(own_x, j.x, own_y, j.y, own_heading)
+            temp_list.append([j, angle_temp])
+    temp_list = sorted(temp_list, key=get_distance)
+    many_cars = False
+    while len(temp_list) > 8:
+        del temp_list[-1]
+        if siren and not many_cars_close:
+            if auto_siren == "^2":
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/siren fast")
+        many_cars = True
+    if siren and not many_cars and many_cars_close:
+        if auto_siren == "^2":
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/siren slow")
+    many_cars_close = many_cars
+
+    cars_relevant = temp_list
+
+
+timer_pdc_sound = 0
+slow_timer = 0
+timer_collision_warning = 0
+timer_collision_warning_sound = 0
+notification_timer = 0
+notification_timer2 = 0
+notification_timer3 = 0
+send_timer = 0
+timer_brake_light = 0
+timer_turned_right = 0
+timer_turned_left = 0
+strobe_timer = 0
+engine_start_timer = 0
+timer_update_npl = 0
+shift_timer = 0
+ema_timer = 0
+lane_btn_timer = 0
+right_indicator_timer = 0
+left_indicator_timer = 0
+bus_announce_timer = 0
+bus_next_stop_timer = 0
+
+
+def timers():
+    global timer_pdc_sound, slow_timer, timer_collision_warning, timer_collision_warning_sound, notification_timer
+    global send_timer, timer_brake_light, timer_turned_right, timer_turned_left, strobe_timer, engine_start_timer
+    global timer_update_npl, shift_timer, notification_timer2, notification_timer3, notifications, ema_timer
+    global lane_btn_timer, right_indicator_timer, left_indicator_timer, bus_announce_timer, bus_next_stop_timer
+    global message_handling_error_count
+
+    if message_handling_error_count > 0:
+        message_handling_error_count = message_handling_error_count - 0.01
+    if bus_next_stop_timer > 0 and own_speed > 2:
+        if bus_next_stop_timer == 1:
+            bus_announce_next_stop()
+        bus_next_stop_timer = bus_next_stop_timer - 1
+
+    if bus_announce_timer > 0 and own_speed > 2:
+        bus_announce_timer = bus_announce_timer - 1
+    if right_indicator_timer > 0:
+        right_indicator_timer = right_indicator_timer - 1
+    if left_indicator_timer > 0:
+        left_indicator_timer = left_indicator_timer - 1
+    if lane_btn_timer > 0:
+        lane_btn_timer = lane_btn_timer - 1
+    if timer_update_npl == 0:
+        timer_update_npl = 20
+        insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_NPL)
+    if timer_update_npl > 0:
+        timer_update_npl = timer_update_npl - 1
+    if timer_pdc_sound > 0:
+        timer_pdc_sound = timer_pdc_sound - 1
+    if slow_timer > 0:
+        slow_timer = slow_timer - 1
+    if timer_collision_warning > 0:
+        timer_collision_warning = timer_collision_warning - 1
+    if timer_collision_warning_sound > 0:
+        timer_collision_warning_sound = timer_collision_warning_sound - 1
+    if notification_timer > 0:
+        notification_timer = notification_timer - 1
+    if notification_timer == 1:
+        notification_timer = 0
+        del_button(16)
+        notifications[0] = ""
+    if notification_timer2 > 0:
+        notification_timer2 = notification_timer2 - 1
+    if notification_timer2 == 1:
+        notification_timer2 = 0
+        del_button(41)
+        notifications[1] = ""
+    if notification_timer3 > 0:
+        notification_timer3 = notification_timer3 - 1
+    if notification_timer3 == 1:
+        notification_timer3 = 0
+        del_button(42)
+        notifications[2] = ""
+    if send_timer > 0:
+        send_timer = 0
+    if timer_brake_light > 0:
+        timer_brake_light = timer_brake_light - 1
+    if timer_turned_left > 0:
+        timer_turned_left = timer_turned_left - 1
+    if timer_turned_right > 0:
+        timer_turned_right = timer_turned_right - 1
+    if strobe_timer > 0:
+        strobe_timer = strobe_timer - 1
+    if engine_start_timer > 0:
+        engine_start_timer = engine_start_timer - 1
+    if shift_timer > 0:
+        shift_timer = shift_timer - 1
+    ema_timer = ema_timer + 1
+    if ema_timer == 12 and settings.emergency_assist == "^2":
+        play_emawarning_thread = Thread(target=helpers.emawarningsound)
+        play_emawarning_thread.start()
+    if ema_timer == 16 and settings.emergency_assist == "^2":
+        play_emawarning2_thread = Thread(target=helpers.emawarningsound2)
+        play_emawarning2_thread.start()
+
+
+park_assist_active = False
+
+
+def send_pdcbtns(angles, distances):
+    global send_timer
+
+    if send_timer == 0:
+        send_timer = 1
+        front = 110
+        rear = 125
+        sidel = 114
+        sider = 122
+        buttons_to_change = []
+        color_to_change = []
+
+        for angle in angles:
+            x = 0
+            if angle >= 345 or angle <= 15:
+                x = 1
+            elif 15 <= angle <= 40:
+                x = 2
+            elif 40 <= angle <= 140:
+                x = 3
+            elif 140 <= angle <= 165:
+                x = 4
+            elif 165 <= angle <= 195:
+                x = 5
+            elif 195 <= angle <= 220:
+                x = 6
+            elif 220 <= angle <= 320:
+                x = 7
+            elif 320 <= angle <= 345:
+                x = 8
+            if x > 0:
+                buttons_to_change.append(x)
+
+        for dist in distances:
+            if dist == 3:
+                indend = 1
+                color_pdc = "^2"
+            elif dist == 2:
+                indend = 2
+                color_pdc = "^3"
+            elif dist == 1:
+                indend = 3
+                color_pdc = "^3"
+            elif dist == 0:
+                indend = 4
+                color_pdc = "^1"
+
+            else:
+                indend = 0
+                color_pdc = "^2"
+            color_this_sensor = color_pdc
+            color_to_change.append((indend, color_this_sensor))
+        if 8 not in buttons_to_change:
+            send_button(108, pyinsim.ISB_LMB, front, 115, 20, 10, "^2-")
+        if 1 not in buttons_to_change:
+            send_button(101, pyinsim.ISB_LMB, front, 118, 20, 10, "^2-")
+        if 2 not in buttons_to_change:
+            send_button(102, pyinsim.ISB_LMB, front, 121, 20, 10, "^2-")
+        if 4 not in buttons_to_change:
+            send_button(104, pyinsim.ISB_LMB, rear, 121, 20, 10, "^2-")
+        if 5 not in buttons_to_change:
+            send_button(105, pyinsim.ISB_LMB, rear, 118, 20, 10, "^2-")
+        if 6 not in buttons_to_change:
+            send_button(106, pyinsim.ISB_LMB, rear, 115, 20, 10, "^2-")
+        if 7 not in buttons_to_change:
+            send_button(107, pyinsim.ISB_LMB, 117, sidel, 20, 10, "^2|")
+        if 3 not in buttons_to_change:
+            send_button(103, pyinsim.ISB_LMB, 117, sider, 20, 10, "^2|")
+        for i, change in enumerate(buttons_to_change):
+            move = color_to_change[i][0]
+            color_this_sensor = color_to_change[i][1]
+
+            if change == 8:
+                send_button(108, pyinsim.ISB_LMB, front + move, 115, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 1:
+                send_button(101, pyinsim.ISB_LMB, front + move, 118, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 2:
+                send_button(102, pyinsim.ISB_LMB, front + move, 121, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 4:
+                send_button(104, pyinsim.ISB_LMB, rear - move, 121, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 5:
+                send_button(105, pyinsim.ISB_LMB, rear - move, 118, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 6:
+                send_button(106, pyinsim.ISB_LMB, rear - move, 115, 20, 10, "{}-".format(color_this_sensor))
+
+            if change == 7:
+                send_button(107, pyinsim.ISB_LMB, 117, sidel + move, 20, 10, "{}|".format(color_this_sensor))
+
+            if change == 3:
+                send_button(103, pyinsim.ISB_LMB, 117, sider - move, 20, 10, "{}|".format(color_this_sensor))
+
+
+def get_sensor_pdc():
+    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading)
+    return sensors
+
+
+emergency_light = False
+emergency_stopped = False
+turned_right = False
+turned_left = False
+
+
+def light_assist():
+    global timer_brake_light, emergency_light, emergency_stopped, turned_left, turned_right, timer_turned_right
+    global timer_turned_left
+    if settings.light_assist == "^2":
+        if not own_light and not emergency_light and not siren and not strobe and not text_entry and not shift_pressed:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/press 3")
+
+        if timer_brake_light == 0:
+            timer_brake_light = 1
+            if brake_light > 0.6 and own_speed > 15 and (not siren and not strobe):
+                emergency_light = True
+                if not text_entry and not shift_pressed:
+                    insim.send(pyinsim.ISP_MST,
+                               Msg=b"/press 3")
+            elif brake_light > 0.8 and own_speed < 15 and emergency_light:
+                emergency_light = False
+                emergency_stopped = True
+                if roleplay == "civil" and not text_entry and not shift_pressed:
+                    insim.send(pyinsim.ISP_MST,
+                               Msg=b"/press 9")
+            elif own_speed > 15 and not emergency_light and emergency_stopped:
+                if roleplay == "civil" and not text_entry and not shift_pressed:
+                    insim.send(pyinsim.ISP_MST,
+                               Msg=b"/press 0")
+                emergency_stopped = False
+            elif own_speed > 15 and emergency_light:
+                emergency_light = False
+        # steering - right + left
+    if auto_indicators == "^2":
+        if own_steering > 800:
+            turned_left = True
+
+        if own_steering < - 800:
+            turned_right = True
+
+        if turned_right and own_steering < - 80:
+            timer_turned_right = 6
+
+        if turned_left and own_steering > 80:
+            timer_turned_left = 6
+
+        if turned_left and indicators[
+            0] == 1 and own_steering < 80 and not text_entry and not shift_pressed and own_speed > 10:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/press 0")
+
+        if turned_right and indicators[
+            1] == 1 and own_steering > - 80 and not text_entry and not shift_pressed and own_speed > 10:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/press 0")
+
+        if timer_turned_right == 0:
+            turned_right = False
+        if timer_turned_left == 0:
+            turned_left = False
+
+
+def start_park_assistance():
+    global timer_pdc_sound
+    global park_assist_active
+    global slow_timer
+    if game:
+        if own_speed > 12:
+            slow_timer = 10
+        if slow_timer == 0 and len(cars_relevant) > 0:
+            park_assist_active = True
+            send_button(109, pyinsim.ISB_DARK, 119, 116, 4, 4, '^7PDC')
+            sensors = get_sensor_pdc()
+            angles = []
+            distances = []
+            for data in sensors:
+                angles.append(data[1])
+                distances.append(data[0])
+
+            park_distance = min(distances)
+
+            send_pdcbtns(angles, distances)
+
+            angle = 0
+            for i, j in enumerate(distances):
+                if j == min(distances):
+                    angle = angles[i]
+
+            if timer_pdc_sound == 0:
+                if park_distance < 4 and own_speed > 0.1 and timer_pdc_sound == 0:
+                    if park_distance == 3:
+                        timer_pdc_sound = 4
+                    elif park_distance == 2:
+                        timer_pdc_sound = 3
+                    elif park_distance == 1:
+                        timer_pdc_sound = 2
+                    elif park_distance == 0:
+                        timer_pdc_sound = 1
+                        notification("^1Stop!", 1)
+                    park_assist.makesound(park_distance, angle)
+
+        else:
+            [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
+            park_assist_active = False
+
+
+new_warning = True
+new_pre_warn = True
+
+
+def collision_warning():
+    global collision_warning_intensity, timer_collision_warning_sound, new_warning, current_control, new_pre_warn
+    if own_speed > 12 or collision_warning_intensity > 0:
+        collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
+                                                                                     own_heading, own_speed,
+                                                                                     accelerator_pressure,
+                                                                                     brake_pressure,
+                                                                                     own_gear,
+                                                                                     settings.collision_warning_distance,
+                                                                                     own_warn_multi,
+                                                                                     own_vehicle_length)
+    if collision_warning_intensity == 1 and new_pre_warn:
+        new_pre_warn = False
+        print("PREWARN")
+        hud_image = Thread(target=change_image_prewarn)
+        hud_image.start()
+
+    if collision_warning_intensity <= 1:
+
+        if collision_warning_intensity == 0 and (not new_warning or not new_pre_warn):
+            new_pre_warn = True
+            hud_image = Thread(target=change_image_del)
+            hud_image.start()
+        new_warning = True
+
+    elif collision_warning_intensity > 1 and timer_collision_warning_sound == 0 and new_warning:
+        timer_collision_warning_sound = 10
+        hud_image = Thread(target=change_image_warn)
+        hud_image.start()
+        new_warning = False
+        play_warning_thread = Thread(target=helpers.collisionwarningsound)
+        play_warning_thread.start()
+
+    if collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2":
+        if own_control_mode == 2:
+            brake()
+
+        elif own_control_mode == 0:
+            current_control = 1
+            thread_br_mouse = Thread(target=brake_mouse)
+            thread_br_mouse.start()
+
+        elif own_control_mode == 1:
+            current_control = 1
+            thread_br_key = Thread(target=brake_keyboard)
+            thread_br_key.start()
+
+    elif current_control == 1:
+        current_control = 0
+        if own_control_mode == 2:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
+            notification("^1Emergency Brake", 2)
+        elif own_control_mode == 0:
+            thread_rel_mouse = Thread(target=release_mouse)
+            thread_rel_mouse.start()
+            notification("^1Emergency Brake", 2)
+        elif own_control_mode == 1:
+            thread_rel_key = Thread(target=release_keyboard)
+            thread_rel_key.start()
+            notification("^1Emergency Brake", 2)
+
+
+def brake_keyboard():
+    pyautogui.keyDown(BRAKE_KEY)
+
+
+def brake_mouse():
+    pyautogui.mouseUp()
+    pyautogui.mouseDown(button="right")
+
+
+def release_keyboard():
+    pyautogui.keyUp(BRAKE_KEY)
+
+
+def release_mouse():
+    pyautogui.mouseUp(button="right")
+
+
+# TODO USE MCI SPEED IF NO ABS
+redline = 7000
+own_vehicle_length = 0
+
+get_brake_dist = True
+
+
+def head_up_display():
+    global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
+    if vehicle_model_change:
+        vehicle_model_change = False
+        own_warn_multi = 1.0
+        get_brake_dist = False
+        redline = helpers.get_vehicle_redline(vehicle_model)
+        own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
+
+    if collision_warning_intensity == 0:
+        send_button(10, pyinsim.ISB_DARK, 119, 90, 13, 8, '^7%.1f KPH' % own_speed)
+        if own_rpm < redline:
+            send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
+        else:
+            send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^1%.1f RPM' % (own_rpm / 1000))
+
+    elif collision_warning_intensity == 1:
+        send_button(10, pyinsim.ISB_DARK, 119, 90, 13, 8, '^1<< ---')
+        send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^1--- >>')
+
+    elif collision_warning_intensity > 1:
+        if timer_collision_warning == 1:
+            send_button(10, pyinsim.ISB_DARK, 119, 90, 13, 8, '^1<< ---')
+            send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^1--- >>')
+        elif timer_collision_warning == 2:
+            send_button(10, pyinsim.ISB_LIGHT, 119, 90, 13, 8, '^1<< ---')
+            send_button(11, pyinsim.ISB_LIGHT, 119, 103, 13, 8, '^1--- >>')
+        if timer_collision_warning == 0:
+            timer_collision_warning = 2
+
+    if settings.head_up_display == "^2":
+        if own_gear > 1:
+            if own_gearbox_mode > 0 and not (settings.automatic_gearbox == "^2" and own_gearbox_mode == 2):
+                send_button(12, pyinsim.ISB_DARK, 123, 116, 4, 4, '^7%.i' % (own_gear - 1))
+            else:
+                send_button(12, pyinsim.ISB_DARK, 123, 116, 4, 4, '^7D%.i' % (own_gear - 1))
+
+        elif own_gear == 1:
+            send_button(12, pyinsim.ISB_DARK, 123, 116, 4, 4, '^7n')
+        elif own_gear == 0:
+            send_button(12, pyinsim.ISB_DARK, 123, 116, 4, 4, '^7r')
+
+
+notifications = ["", "", ""]
+
+
+def notification(notification_text, duration_in_sec):
+    global notification_timer, notifications, notification_timer2, notification_timer3
+    send_to_screen = True
+
+    for notes in notifications:
+        if notes == notification_text:
+            send_to_screen = False
+
+    if send_to_screen:
+        if notifications[0] == "":
+            notifications[0] = notification_text
+            send_button(16, pyinsim.ISB_DARK, 127, 90, 26, 6, notification_text)
+            notification_timer = duration_in_sec * 5
+        elif notifications[1] == "":
+            notifications[1] = notification_text
+            notification_timer2 = duration_in_sec * 5
+            send_button(41, pyinsim.ISB_DARK, 133, 90, 26, 6, notification_text)
+        elif notifications[2] == "":
+            notifications[2] = notification_text
+            notification_timer3 = duration_in_sec * 5
+            send_button(42, pyinsim.ISB_DARK, 140, 90, 26, 6, notification_text)
+
+
+def send_button(click_id, style, t, l, w, h, text):
+    global buttons_on_screen
+    if buttons_on_screen[
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or click_id == 68 or click_id == 69:
+        buttons_on_screen[click_id] = 1
+        insim.send(pyinsim.ISP_BTN,
+                   ReqI=255,
+                   ClickID=click_id,
+                   BStyle=style | 3,
+                   T=t,
+                   L=l,
+                   W=w,
+                   H=h,
+                   Text=text.encode())
+
+
+def del_button(click_id):
+    global buttons_on_screen
+    if buttons_on_screen[click_id] == 1:
+        insim.send(pyinsim.ISP_BFN,
+                   ReqI=255,
+                   ClickID=click_id
+                   )
+        buttons_on_screen[click_id] = 0
+
+
+yield_polygons = []
+
+
+def insim_state(insim, sta):
+    global track, game, text_entry, start_outgauge_again, polygons_r, polygons_l, yield_polygons
+
+    if b"WE" in sta.Track:
+        if track != b"WE":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"WE"
+    elif b"BL" in sta.Track:
+        if track != b"BL":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"BL"
+    elif b"AS" in sta.Track:
+        if track != b"AS":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"AS"
+    elif b"SO" in sta.Track:
+        if track != b"SO":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"SO"
+    elif b"FE" in sta.Track:
+        if track != b"FE":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"FE"
+    elif b"KY" in sta.Track:
+        if track != b"KY":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"KY"
+    elif b"AU" in sta.Track:
+        if track != b"AU":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"AU"
+    elif b"RO" in sta.Track:
+        if track != b"RO":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"RO"
+    elif b"LA" in sta.Track:
+        if track != b"LA":
+            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
+            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
+        track = b"LA"
+    yield_polygons = helpers.load_yield_polygons(track)
+    flags = [int(i) for i in str("{0:b}".format(sta.Flags))]
+
+    if len(flags) >= 15:
+
+        if not game and flags[-1] == 1 and flags[-15] == 1:
+            game_insim()
+
+        elif game and flags[-1] == 0 or flags[-15] == 0:
+            menu_insim()
+            start_outgauge_again = True
+
+    elif game:
+        menu_insim()
+    try:
+        if flags[-16] == 1:
+            text_entry = True
+    except:
+        text_entry = False
+
+
+def menu_insim():
+    global insim, game, time_menu
+    if game:
+        game = False
+
+        time_menu = time.time()
+    insim.unbind(pyinsim.ISP_MCI, get_car_data)
+    [del_button(i) for i in range(200)]
+    send_button(31, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 180, 0, 25, 5, "Waiting for you to hit the road.")
+
+
+def game_insim():
+    global insim, game, time_menu, outgauge, start_outgauge_again
+    if time.time() - time_menu > 30 and not game:
+        try:
+            outgauge = pyinsim.outgauge('127.0.0.1', 30000, outgauge_packet, 30.0)
+        except:
+            print("Couldn't restart outgauge. Maybe it was still active.")
+    game = True
+    start_outgauge_again = False
+    send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
+    del_button(31)
+    del_button(32)
+    insim.bind(pyinsim.ISP_MCI, get_car_data)
+    insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_NPL)
+
+
+def open_menu():
+    menu_top = 80
+    del_button(30)
+    if track == b"WE" or track == b"BL":
+        color = [pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 30, 0, 20, 5,
+                 "{}Lane Assist".format(settings.lane_assist)]
+    else:
+        color = [pyinsim.ISB_LIGHT, menu_top + 30, 0, 20, 5, "^0Lane Assist".format(settings.lane_assist)]
+    send_button(19, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 0, 20, 5,
+                "^7Menu")
+    send_button(20, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top, 0, 20, 5,
+                "{}Head-Up Display".format(settings.head_up_display))
+    send_button(21, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 0, 20, 5,
+                "{}Collision Warning".format(settings.forward_collision_warning))
+    send_button(22, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 10, 0, 20, 5,
+                "{}Blind-Spot Warning".format(settings.blind_spot_warning))
+    send_button(23, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 15, 0, 20, 5,
+                "{}Cross-Traffic Warn.".format(settings.cross_traffic_warning))
+    send_button(24, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 20, 0, 20, 5,
+                "{}Light Assist".format(settings.light_assist))
+    send_button(68, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 20, 20, 20, 5,
+                "{}Auto-Indicator Turnoff".format(auto_indicators))
+    send_button(25, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 25, 0, 20, 5,
+                "{}Emergency Assist".format(settings.emergency_assist))
+    send_button(26, color[0], color[1], color[2], color[3], color[4], color[5])
+    send_button(27, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 35, 0, 20, 5,
+                "{}Parking Aid".format(settings.park_distance_control))
+    send_button(28, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 40, 0, 20, 5,
+                "{}Cop Aid System".format(settings.cop_aid_system))
+    send_button(69, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 40, 20, 20, 5,
+                "{}Auto-Siren".format(auto_siren))
+    send_button(41, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 20, 15, 5,
+                "{}Automatic Brake".format(settings.automatic_emergency_braking))
+    send_button(42, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 35, 10, 5,
+                "{}".format(settings.collision_warning_distance))
+    send_button(43, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 45, 0, 20, 5,
+                "{}Auto Gearshift".format(settings.automatic_gearbox))
+    send_button(50, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 30, 20, 10, 5,
+                "{}".format(settings.lane_dep_intensity))
+    send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 20, 5,
+                "Bus Menu")
+    if get_brake_dist:
+        send_button(66, pyinsim.ISB_LIGHT, menu_top + 55, 0, 20, 5,
+                    "^0Calibrating AEB...")
+        send_button(67, pyinsim.ISB_LIGHT, menu_top + 55, 20, 25, 5,
+                    "^0Brake hard from 60 kph")
+    else:
+        send_button(66, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
+                    "Recalibrate AEB")
+
+    send_button(29, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 60, 0, 20, 5,
+                "^1Close")
+
+
+def close_menu():
+    x = 19
+    for i in range(11):
+        del_button(x + i)
+    del_button(41)
+    del_button(42)
+    del_button(43)
+    del_button(50)
+    del_button(51)
+    del_button(66)
+    del_button(67)
+    del_button(68)
+    del_button(69)
+    send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
+    get_settings.write_settings(settings)
+
+
+def change_setting(sett):
+    if sett == "^1":
+        sett = "^2"
+    else:
+        sett = "^1"
+
+    return sett
+
+
+bus_next_stop_sound = True
+bus_route_sound = True
+bus_door_sound = True
+
+
+def on_click(insim, btc):
+    global settings, strobe, siren, collision_warning_not_cop
+    global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
+    global own_warn_multi, get_brake_dist, auto_indicators, auto_siren
+
+    if btc.ClickID == 30:
+        open_menu()
+    elif btc.ClickID == 68:
+        auto_indicators = change_setting(auto_indicators)
+    elif btc.ClickID == 69:
+        auto_siren = change_setting(auto_siren)
+    elif btc.ClickID == 66:
+        get_brake_dist = True
+        own_warn_multi = 1.0
+        measure_param = [0, 0, 0, 0]
+        del_button(66)
+        del_button(67)
+        open_menu()
+    elif btc.ClickID == 29 or btc.ClickID == 19:
+        close_menu()
+    elif btc.ClickID == 20:
+        settings.head_up_display = change_setting(settings.head_up_display)
+    elif btc.ClickID == 21:
+        settings.forward_collision_warning = change_setting(settings.forward_collision_warning)
+        if roleplay != "cop":
+            collision_warning_not_cop = settings.forward_collision_warning
+    elif btc.ClickID == 22:
+        settings.blind_spot_warning = change_setting(settings.blind_spot_warning)
+    elif btc.ClickID == 23:
+        settings.cross_traffic_warning = change_setting(settings.cross_traffic_warning)
+    elif btc.ClickID == 24:
+        settings.light_assist = change_setting(settings.light_assist)
+    elif btc.ClickID == 25:
+        settings.emergency_assist = change_setting(settings.emergency_assist)
+    elif btc.ClickID == 26:
+        settings.lane_assist = change_setting(settings.lane_assist)
+    elif btc.ClickID == 27:
+        settings.park_distance_control = change_setting(settings.park_distance_control)
+    elif btc.ClickID == 41:
+        settings.automatic_emergency_braking = change_setting(settings.automatic_emergency_braking)
+    elif btc.ClickID == 42:
+        if settings.collision_warning_distance == "early":
+            settings.collision_warning_distance = "medium"
+        elif settings.collision_warning_distance == "medium":
+            settings.collision_warning_distance = "late"
+        else:
+            settings.collision_warning_distance = "early"
+    elif btc.ClickID == 50:
+        if settings.lane_dep_intensity == "early":
+            settings.lane_dep_intensity = "normal"
+        elif settings.lane_dep_intensity == "normal":
+            settings.lane_dep_intensity = "reduced"
+        else:
+            settings.lane_dep_intensity = "early"
+    elif btc.ClickID == 43:
+        settings.automatic_gearbox = change_setting(settings.automatic_gearbox)
+    elif btc.ClickID == 28:
+        settings.cop_aid_system = change_setting(settings.cop_aid_system)
+        del_button(33)
+        del_button(34)
+        if siren or strobe:
+            strobe = False
+    elif btc.ClickID == 33:
+        change_siren()
+    elif btc.ClickID == 34:
+        strobe = not strobe
+        if not strobe and not text_entry and not shift_pressed:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/press 0")
+    if 20 <= btc.ClickID <= 28 or 41 <= btc.ClickID <= 43 or btc.ClickID == 50 or btc.ClickID == 68 or btc.ClickID == 69:
+        open_menu()
+
+    if btc.ClickID == 51:
+        if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
+            load_bus_menu()
+
+    if btc.ClickID == 52:
+        bus_next_stop_sound = not bus_next_stop_sound
+        load_bus_menu()
+
+    elif btc.ClickID == 53:
+        bus_route_sound = not bus_route_sound
+        load_bus_menu()
+
+    elif btc.ClickID == 54:
+        bus_door_sound = not bus_door_sound
+        load_bus_menu()
+
+    elif btc.ClickID == 59:
+        x = 52
+        del_button(19)
+        for i in range(8):
+            del_button(x + i)
+        close_menu()
+
+
+player_id_to_track = 0
+person_chased = ""
+message_handling_error_count = 0
+
+
+def load_bus_menu():
+    menu_top = 80
+    close_menu()
+    del_button(30)
+
+    send_button(51, pyinsim.ISB_DARK, menu_top - 5, 0, 20, 5, "Bus Settings")
+    if bus_next_stop_sound:
+        send_button(52, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top, 0, 20, 5, "^2Next Stop sound")
+    else:
+        send_button(52, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top, 0, 20, 5, "^1Next Stop sound")
+
+    if bus_route_sound:
+        send_button(53, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 0, 20, 5, "^2Current Route sound")
+    else:
+        send_button(53, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 0, 20, 5, "^1Current Route sound")
+
+    if bus_door_sound:
+        send_button(54, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 10, 0, 20, 5, "^2Door sound")
+    else:
+        send_button(54, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 10, 0, 20, 5, "^1Door sound")
+
+    send_button(59, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 15, 0, 20, 5, "^1Close")
+
+
+string_bust = b""
+string_bust2 = b""
+
+
+def message_handling(insim, mso):
+    global siren, strobe, chase, player_id_to_track, person_chased, message_handling_error_count, current_bus_route
+    global string_bust, string_bust2
+
+    if mso.Msg == b'PACT Driving Assistant Active':
+        print("Connection to LFS sucessful!")
+    try:
+        own_player_name_str = str(own_player_name)
+        own_player_name_str = own_player_name_str.replace("b'", "")
+        own_player_name_str = own_player_name_str.replace("'", "")
+
+        if message_handling_error_count < 8:
+            stop_str = "Stop complete.".encode()
+            route1_str = (own_player_name_str + "none_route").encode()
+            route2_str = (own_player_name_str + "none_route").encode()
+            route3_str = (own_player_name_str + "none_route").encode()
+            route4_str = (own_player_name_str + "none_route").encode()
+            route5_str = (own_player_name_str + "none_route").encode()
+            route6_str = (own_player_name_str + "none_route").encode()
+            route7_str = (own_player_name_str + "none_route").encode()
+            route8_str = (own_player_name_str + "none_route").encode()
+            if track == b"BL":
+                route1_str = (own_player_name_str + "^L^L started Red Route").encode()
+                route2_str = (own_player_name_str + "^L^L started Blue Route").encode()
+                route3_str = (own_player_name_str + "^L^L started Yellow Route").encode()
+                route4_str = (own_player_name_str + "^L^L started Green Route").encode()
+
+            elif track == b"SO":
+                route1_str = (own_player_name_str + "^L^L started Southern Route Short").encode()
+                route2_str = (own_player_name_str + "^L^L started Southern Route Short Rev").encode()
+                route3_str = (own_player_name_str + "^L^L started Southern Route Long").encode()
+                route4_str = (own_player_name_str + "^L^L started Southern Route Long Rev").encode()
+                route5_str = (own_player_name_str + "^L^L started Castle Hill Route").encode()
+                route6_str = (own_player_name_str + "^L^L started Castle Hill Route Rev").encode()
+                route7_str = (own_player_name_str + "^L^L started Le Grand Tour").encode()
+
+            elif track == b"FE":
+                route1_str = (own_player_name_str + "^L^L started Eastern Short Route").encode()
+                route2_str = (own_player_name_str + "^L^L started Eastern Short Route Rev").encode()
+                route3_str = (own_player_name_str + "^L^L started Eastern Route").encode()
+                route4_str = (own_player_name_str + "^L^L started Eastern Route Rev").encode()
+                route5_str = (own_player_name_str + "^L^L started The Grand Tour").encode()
+                route6_str = (own_player_name_str + "^L^L started The Grand Tour Rev").encode()
+                route7_str = (own_player_name_str + "^L^L started Transit West").encode()
+
+            elif track == b"AS":
+                route1_str = (own_player_name_str + "^L^L started Route 1").encode()
+                route2_str = (own_player_name_str + "^L^L started Route 1 Rev").encode()
+                route3_str = (own_player_name_str + "^L^L started Route 2").encode()
+                route4_str = (own_player_name_str + "^L^L started Route 2 Rev").encode()
+                route5_str = (own_player_name_str + "^L^L started Route 3").encode()
+                route6_str = (own_player_name_str + "^L^L started Route 3 Rev").encode()
+                route7_str = (own_player_name_str + "^L^L started Route 4").encode()
+                route8_str = (own_player_name_str + "^L^L started Route 4 Rev").encode()
+
+            elif track == b"KY":
+                route1_str = (own_player_name_str + "^L^L started Route 1 Long").encode()
+                route2_str = (own_player_name_str + "^L^L started Route 1 Rev").encode()
+                route3_str = (own_player_name_str + "^L^L started Route 1").encode()
+                route4_str = (own_player_name_str + "^L^L started Route 2").encode()
+
+            elif track == b"WE":
+                route1_str = (own_player_name_str + "^L^L started Yellow Route").encode()
+                route2_str = (own_player_name_str + "^L^L started Green Route").encode()
+                route3_str = (own_player_name_str + "^L^L started Red Route").encode()
+                route4_str = (own_player_name_str + "^L^L started Blue Route").encode()
+
+            route_message = mso.Msg
+            route_message = str(route_message)
+            route_message = route_message.encode()
+            route_message = route_message.replace(b"^1", b"")
+            route_message = route_message.replace(b"^2", b"")
+            route_message = route_message.replace(b"^3", b"")
+            route_message = route_message.replace(b"^4", b"")
+            route_message = route_message.replace(b"^5", b"")
+            route_message = route_message.replace(b"^6", b"")
+            route_message = route_message.replace(b"^7", b"")
+            route_message = route_message.replace(b"^8", b"")
+            route_message = route_message.replace(b"^9", b"")
+            route_message = route_message.replace(b"^0", b"")
+
+
+            if route2_str in route_message:
+                current_bus_route = "route_2"
+            elif route1_str in route_message:
+                current_bus_route = "route_1"
+            elif route4_str in route_message:
+                current_bus_route = "route_4"
+            elif route3_str in route_message:
+                current_bus_route = "route_3"
+            elif route6_str in route_message:
+                current_bus_route = "route_6"
+            elif route5_str in route_message:
+                current_bus_route = "route_5"
+            elif route8_str in route_message:
+                current_bus_route = "route_8"
+            elif route7_str in route_message:
+                current_bus_route = "route_7"
+
+            if stop_str in mso.Msg:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 0")
+            if settings.cop_aid_system == "^2":
+                string_chase = (own_player_name_str + "^L chasing:").encode()
+                string_join = (own_player_name_str + "^L joined on").encode()
+                string_lost = (own_player_name_str + "^L lost contact with suspect.").encode()
+                string_left = (own_player_name_str + "^L left the chase.").encode()
+                string_backup = (own_player_name_str + "^L is calling for backup.").encode()
+
+                if string_chase in mso.Msg or string_join in mso.Msg:
+                    if not siren:
+                        change_siren()
+
+                    chase = True
+                    person_chased = mso.Msg
+                    if string_chase in mso.Msg:
+                        person_chased = person_chased.split(b"chasing:")
+                    else:
+                        person_chased = person_chased.split(b"joined on")
+                    person_chased = person_chased[1]
+                    person_chased = person_chased[1:]
+
+                    for key in players:
+
+                        name = players[key].PName
+                        name = name.replace(b"^1", b"")
+                        name = name.replace(b"^2", b"")
+                        name = name.replace(b"^3", b"")
+                        name = name.replace(b"^4", b"")
+                        name = name.replace(b"^5", b"")
+                        name = name.replace(b"^6", b"")
+                        name = name.replace(b"^7", b"")
+                        name = name.replace(b"^8", b"")
+                        name = name.replace(b"^0", b"")
+                        if person_chased == name:
+                            player_id_to_track = players[key].PLID
+                            person_chased = str(name)
+                            person_chased = person_chased.replace("b'", "")
+                            person_chased = person_chased.replace("'", "")
+
+                            string_bust = (person_chased + " has been busted ^Lby").encode()
+                            string_bust2 = (person_chased + " has been auto-busted").encode()
+                elif string_lost in mso.Msg or string_left in mso.Msg or ((
+                                                                                  string_bust in mso.Msg or string_bust2 in mso.Msg) and string_bust != b"" and string_bust2 != b""):
+
+                    if siren:
+                        change_siren()
+
+                    strobe = False
+                    if not strobe and not text_entry and not shift_pressed and roleplay == "cop":
+                        insim.send(pyinsim.ISP_MST,
+                                   Msg=b"/press 0")
+                    chase = False
+
+    except:
+        print("Error in message handling. Usually not a problem, maybe unknown character!")
+        message_handling_error_count = message_handling_error_count + 1
+
+
+def start_eng():
+    pyautogui.keyDown(IGNITION_KEY)
+    pyautogui.keyUp(IGNITION_KEY)
+
+
+def handbrake():
+    pyautogui.keyDown(HANDBRAKE_KEY)
+    pyautogui.keyUp(HANDBRAKE_KEY)
+
+
+times = 0
+
+previous_acceleration = 0
+previous_brake = 0
+previous_steer = 0
+ema_active = False
+active_lane_prep = False
+
+
+def other_assistances():
+    global engine_start_timer, times, ema_timer, previous_steer, previous_brake, previous_acceleration, ema_active, current_control
+    global active_lane, active_lane_prep
+
+    if own_rpm < 150 and own_battery_light:
+        if not text_entry and not shift_pressed and engine_type != "electric":
+            thread_press_i = Thread(target=start_eng)
+            thread_press_i.start()
+            notification("^3Anti-Stall", 2)
+
+    elif accelerator_pressure > 0.2 and own_rpm < 150 and engine_start_timer == 0:
+        engine_start_timer = 2
+        if not text_entry and not shift_pressed and engine_type != "electric":
+            thread_press_i = Thread(target=start_eng)
+            thread_press_i.start()
+            notification("^3Auto-Engine-Start", 2)
+    if settings.emergency_assist == "^2":
+        movement_of_car = 10
+        if ema_timer > 14:
+            movement_of_car = ema_timer * 3
+            if movement_of_car > 80:
+                movement_of_car = 80
+
+        if own_speed > 10 and not ema_active and ((
+                                                          accelerator_pressure != previous_acceleration or (
+                                                          brake_light != previous_brake and ema_timer < 15) or not previous_steer - movement_of_car <= own_steering <= previous_steer + movement_of_car) or accelerator_pressure > 0.25 or brake_light > 0.75):
+            previous_steer = own_steering
+            previous_brake = brake_light
+            previous_acceleration = accelerator_pressure
+            ema_timer = 0
+
+        elif own_speed < 11 and not ema_active:
+            ema_timer = 0
+        previous_steer = own_steering
+        if ema_active and own_speed < 1:
+            ema_timer = 0
+            if not text_entry and not shift_pressed:
+                thread_press_q = Thread(target=handbrake)
+                thread_press_q.start()
+                notification("^3Auto-Hold", 1)
+
+        acc_move = 0.2
+
+        if ema_active and (
+                not previous_acceleration - acc_move <= accelerator_pressure <= previous_acceleration + acc_move or not previous_steer - movement_of_car <= own_steering <= previous_steer + movement_of_car):
+            previous_steer = own_steering
+            previous_brake = brake_pressure
+            previous_acceleration = accelerator_pressure
+            ema_timer = 0
+
+        if ema_active:
+            previous_acceleration = accelerator_pressure
+
+        if 8 < ema_timer <= 12:
+            notification("Pay Attention", 1)
+
+        elif 12 <= ema_timer <= 15:
+            notification("^1Pay Attention", 2)
+
+        elif ema_timer > 15:
+            ema_active = True
+
+            notification("^1Stopping Car", 2)
+            if not text_entry and not shift_pressed:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 9")
+            if ema_timer == 20 or (ema_timer > 20 and ema_timer % 15 == 0):
+                play_emawarning_thread = Thread(target=helpers.emawarningsound2)
+                play_emawarning_thread.start()
+
+            if current_control == 0:
+                current_control = 1
+
+                if own_control_mode == 2:
+                    insim.send(pyinsim.ISP_MST,
+                               Msg=b"/axis %.1i brake" % VJOY_AXIS)
+                    if lane_detected and 85 > own_speed > 15:
+                        active_lane = True
+                    elif not active_lane:
+                        wheel_support.brake_slow()
+
+                elif own_control_mode == 0:
+                    thread_rel_mouse = Thread(target=brake_mouse)
+                    thread_rel_mouse.start()
+
+                elif own_control_mode == 1:
+                    thread_rel_key = Thread(target=brake_keyboard)
+                    thread_rel_key.start()
+        if ema_timer < 15 and active_lane:
+            active_lane = False
+        if ema_timer > 10:
+            active_lane_prep = True
+        if ema_active and ema_timer <= 15 and own_speed > 5:
+            if not text_entry and not shift_pressed:
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/press 0")
+
+        if ema_active and ema_timer <= 15:
+            ema_active = False
+
+            if current_control == 1:
+                current_control = 0
+
+                if own_control_mode == 2:
+                    insim.send(pyinsim.ISP_MST,
+                               Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+
+                elif own_control_mode == 0:
+                    thread_rel_mouse = Thread(target=release_mouse)
+                    thread_rel_mouse.start()
+
+                elif own_control_mode == 1:
+                    thread_rel_key = Thread(target=release_keyboard)
+                    thread_rel_key.start()
+
+    if brake_pressure > 0.2 and accelerator_pressure < 0.1 and own_speed < 0.01 and not own_handbrake:
+        if not text_entry and not shift_pressed:
+            thread_press_q = Thread(target=handbrake)
+            thread_press_q.start()
+            notification("^3Auto-Hold", 1)
+
+
+send_button(31, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 175, 0, 25, 5, "Waiting for you to hit the road.")
+send_button(32, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 180, 0, 25, 5, "^1Press 'V' if you're already on track.")
+
+current_control = 0  # 0 = Player, 1 = Python
+
+
+def brake():
+    global current_control
+    if current_control == 0:
+        current_control = 1
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i brake" % VJOY_AXIS)
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
+
+    wheel_support.brake()
+
+
+insim.bind(pyinsim.ISP_MSO, message_handling)
+insim.bind(pyinsim.ISP_STA, insim_state)
+insim.bind(pyinsim.ISP_NPL, new_player)
+insim.bind(pyinsim.ISP_PLL, player_left)
+insim.bind(pyinsim.ISP_PLP, player_pits)
+insim.bind(pyinsim.ISP_BTC, on_click)
+
+pyinsim.run()

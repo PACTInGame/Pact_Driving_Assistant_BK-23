@@ -1,0 +1,87 @@
+def get_settings_from_file():
+    change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal"]
+    try:
+        with open("settings.txt") as fp:
+            for i, line in enumerate(fp):
+                if 2 <= i <= 11:
+                    line = line.split()
+                    if str(line[0]) == "on":
+                        change_set[i - 2] = "^2"
+                    else:
+                        change_set[i - 2] = "^1"
+
+                if i == 12:
+                    line = line.split()
+                    change_set[i - 2] = str(line[0])
+                if i == 13:
+                    line = line.split()
+                    if str(line[0]) == "on":
+                        change_set[i - 2] = "^2"
+                    else:
+                        change_set[i - 2] = "^1"
+                if i == 14:
+                    line = line.split()
+                    change_set[i - 2] = str(line[0])
+
+        print("Settings loaded successfully")
+        return change_set
+
+    except:
+        print("Error loading settings. Make sure settings.txt exists in Folder.")
+
+
+def get_controls_from_file():
+    change_set = ["s", "x", "i", "2", "3", "1", "6", "down", "up", "q"]
+    try:
+        with open("controls.txt") as fp:
+            for i, line in enumerate(fp):
+                if 1 <= i <= 10:
+                    line = line.split()
+                    change_set[i-1] = line[0]
+
+        print("Controls loaded successfully")
+        return change_set
+
+    except:
+        print("Error loading control-settings. Make sure controls.txt exists in Folder.")
+
+
+def write_settings(settings):
+    file_string = "Important: Only change the letter in the at the beginning. Do not rearrange this layout. \n" \
+                  'Assistance-Default-Settings ("on", or "off". Space necessary between setting and "<--"):\n' \
+                  "{} <-- Head-up display\n" \
+                  "{} <-- Forward collision warning\n" \
+                  "{} <-- Blind spot warning\n" \
+                  "{} <-- Cross traffic warning\n" \
+                  "{} <-- Light assist\n" \
+                  "{} <-- Park assist\n" \
+                  "{} <-- Emergency assist\n" \
+                  "{} <-- Lane assist\n" \
+                  "{} <-- Cop aid system\n" \
+                  "{} <-- Automatic Emergency Braking\n" \
+                  "{} <-- Collision Warning Distance (early, medium, late)\n"\
+                  "{} <-- Automatic Gearbox (when sequential Gearbox is set in LFS)\n"\
+                  "{} <-- Lane departure warning intensity (early, normal, reduced)".format(settings.head_up_display,
+                                                                                   settings.forward_collision_warning,
+                                                                                   settings.blind_spot_warning,
+                                                                                   settings.cross_traffic_warning,
+                                                                                   settings.light_assist,
+                                                                                   settings.park_distance_control,
+                                                                                   settings.emergency_assist,
+                                                                                   settings.lane_assist,
+                                                                                   settings.cop_aid_system,
+                                                                                   settings.automatic_emergency_braking,
+                                                                                   settings.collision_warning_distance,
+                                                                                   settings.automatic_gearbox,
+                                                                                   settings.lane_dep_intensity)
+
+    file_string = file_string.replace("^2", "on")
+    file_string = file_string.replace("^1", "off")
+    try:
+        with open('settings.txt', 'w') as file:
+            file.write(file_string)
+        print("Settings saved successfully")
+    except:
+        print("An Error has Occurred during saving. Make sure settings.txt exists.")
+
+

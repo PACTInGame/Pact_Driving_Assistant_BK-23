@@ -1,0 +1,12 @@
+Important: Only change the letter in the at the beginning. For example if your shift up key is "a". Change s to a. Do not rearrange this layout.
+s  <-change you Shift Up key here.      ------------------ ALL USERS
+x  <-change you Shift Down key here. ------------------ ALL USERS
+i  <-change you Ignition key here.       ------------------ ALL USERS
+9  <-specify your throttle axis (OPTIONS -> CONTROLS -> AXES/FF), if you have a controller
+12  <-specify your brake axis, if you have a controller
+8  <-specify your steering axis, if you have a controller
+15 <-specify the first vjoy axis, if you have a controller
+down  <-specify the brake key, if you use keyboard
+up <-specify the accelerator key, if you use keyboard
+q <-specify the handbrake key           ------------------ ALL USERS
+C:\\Program Files\\vJoy\\x64\\vJoyInterface.dll <-change Path to vJoy folder here, depends on where you've installed it.  
