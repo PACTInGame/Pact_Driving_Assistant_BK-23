@@ -1,5 +1,5 @@
 def get_settings_from_file():
-    change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal"]
+    change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal", "^2", "^1", "1920x1080"]
     try:
         with open("settings.txt") as fp:
             for i, line in enumerate(fp):
@@ -22,6 +22,22 @@ def get_settings_from_file():
                 if i == 14:
                     line = line.split()
                     change_set[i - 2] = str(line[0])
+                if i == 15 or i == 16:
+                    line = line.split()
+                    if str(line[0]) == "on":
+                        change_set[i - 2] = "^2"
+                    else:
+                        change_set[i - 2] = "^1"
+                if i == 17:
+                    line = line.split()
+                    line = line[0].split("x")
+                    change_set[i - 2] = str(line[0]) + "x" + str(line[1])
+
+
+
+
+
+
 
         print("Settings loaded successfully")
         return change_set
@@ -61,7 +77,10 @@ def write_settings(settings):
                   "{} <-- Automatic Emergency Braking\n" \
                   "{} <-- Collision Warning Distance (early, medium, late)\n"\
                   "{} <-- Automatic Gearbox (when sequential Gearbox is set in LFS)\n"\
-                  "{} <-- Lane departure warning intensity (early, normal, reduced)".format(settings.head_up_display,
+                  "{} <-- Lane departure warning intensity (early, normal, reduced)\n" \
+                  "{} <-- Head-up display with images\n" \
+                  "{} <-- stability control\n" \
+                  "{} <-- Monitor resolution".format(settings.head_up_display,
                                                                                    settings.forward_collision_warning,
                                                                                    settings.blind_spot_warning,
                                                                                    settings.cross_traffic_warning,
@@ -73,7 +92,10 @@ def write_settings(settings):
                                                                                    settings.automatic_emergency_braking,
                                                                                    settings.collision_warning_distance,
                                                                                    settings.automatic_gearbox,
-                                                                                   settings.lane_dep_intensity)
+                                                                                   settings.lane_dep_intensity,
+                                                                                   settings.image_hud,
+                                                                                   settings.PSC,
+                                                                                   settings.resolution)
 
     file_string = file_string.replace("^2", "on")
     file_string = file_string.replace("^1", "off")

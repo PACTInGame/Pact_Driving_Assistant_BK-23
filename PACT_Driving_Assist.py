@@ -5,7 +5,6 @@ import pyautogui
 import PSC
 import active_lane_keeping
 import bus_routes
-import hud_window
 import keyboard
 import load_lane_data
 import pyinsim
@@ -27,7 +26,7 @@ import tkinter as tk
 
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.8.6')
+print('PACT DRIVING ASSISTANT VERSION 11.9')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
@@ -50,8 +49,10 @@ insim.send(pyinsim.ISP_MSL,
 print('Loading settings')
 time.sleep(0.1)
 set_def = get_settings.get_settings_from_file()
+print(set_def)
 settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
-                           set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12])
+                           set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12], set_def[13],
+                           set_def[14], set_def[15])
 cont_def = get_settings.get_controls_from_file()
 SHIFT_UP_KEY = cont_def[0]
 SHIFT_DOWN_KEY = cont_def[1]
@@ -133,6 +134,7 @@ engine_type = "combustion"
 # button 68 = auto indicators
 # button 69 = strobe assist
 # button 70 = ESP
+# button 71-75 = more settings
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -159,32 +161,36 @@ def window():
     crossImage = tk.PhotoImage(file='data\\cross.png')
     root.configure(background='black')
     root.overrideredirect(True)
-    root.geometry("200x100+890+550")
+    res = settings.resolution
+    res = res.split("x")
+    res1 = int(res[0]) / 2.16
+    res2 = int(res[1]) / 1.95
+    root.geometry("200x100+" + str(round(res1)) + "+" + str(round(res2)))
     root.lift()
     root.wm_attributes("-topmost", True)
     root.wm_attributes("-disabled", True)
     root.wm_attributes("-transparentcolor", "black")
     root.attributes('-alpha', 0.9)
     root.mainloop()
-
-
-collision_warning_intensity_was = 0
+    collision_warning_intensity_was = 0
 
 
 def change_image_warn():
     global root, label, collision_warning_intensity_was
-    label2.pack_forget()
-    label.image = warningImage
-    label.pack()
-    root.update()
+    if settings.image_hud == "^2":
+        label2.pack_forget()
+        label.image = warningImage
+        label.pack()
+        root.update()
 
 
 def change_image_prewarn():
     global root, label, collision_warning_intensity_was
-    label.pack_forget()
-    label2.image = preWarningImage
-    label2.pack()
-    root.update()
+    if settings.image_hud == "^2":
+        label.pack_forget()
+        label2.image = preWarningImage
+        label2.pack()
+        root.update()
 
 
 def change_image_del():
@@ -217,7 +223,6 @@ def outgauge_packet(outgauge, packet):
 
                 steering, actual = active_lane_keeping.calculate_steering(polygons_r, polygons_l, own_x, own_y,
                                                                           previous_steering, previous_steering2)
-
 
                 if steering == 0:
                     steering = backup
@@ -660,6 +665,7 @@ timers_timer = 0
 own_previous_steering = 0
 pscActive = False
 
+
 def get_car_data(insim, MCI):
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
@@ -694,8 +700,8 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-
-        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) :
+        print(vehicle_model)
+        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and vehicle_model == b"FZ5":
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
             wheel_support.brake_slow()
@@ -1538,7 +1544,7 @@ def notification(notification_text, duration_in_sec):
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
     if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or click_id == 68 or click_id == 69:
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 72:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1699,18 +1705,29 @@ def open_menu():
                 "{}Auto Gearshift".format(settings.automatic_gearbox))
     send_button(50, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 30, 20, 10, 5,
                 "{}".format(settings.lane_dep_intensity))
-    send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 20, 5,
-                "Bus Menu")
-    if get_brake_dist:
-        send_button(66, pyinsim.ISB_LIGHT, menu_top + 55, 0, 20, 5,
-                    "^0Calibrating AEB...")
-        send_button(67, pyinsim.ISB_LIGHT, menu_top + 55, 20, 25, 5,
-                    "^0Brake hard from 60 kph")
+    send_button(71, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 0, 20, 15, 5,
+                "{}HUD-Images".format(settings.image_hud))
+    if own_control_mode == 2:
+        send_button(72, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 25, 5,
+                    "{}Stability Control (beta, bad)".format(settings.PSC))
     else:
-        send_button(66, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
+        send_button(72, pyinsim.ISB_LIGHT , menu_top + 50, 0, 25, 5,
+                    "^1Stability Control (only wheel)")
+
+    # TODO Grey bus menu when not available
+    send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
+                "Bus Menu")
+
+    if get_brake_dist:
+        send_button(66, pyinsim.ISB_LIGHT, menu_top + 60, 0, 20, 5,
+                    "^0Re-Calibrating AEB...")
+        send_button(67, pyinsim.ISB_LIGHT, menu_top + 60, 20, 35, 5,
+                    "^0Brake hard from 70 kph 3x (straight)")
+    else:
+        send_button(66, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 60, 0, 20, 5,
                     "Recalibrate AEB")
 
-    send_button(29, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 60, 0, 20, 5,
+    send_button(29, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 65, 0, 20, 5,
                 "^1Close")
 
 
@@ -1727,6 +1744,8 @@ def close_menu():
     del_button(67)
     del_button(68)
     del_button(69)
+    del_button(71)
+    del_button(72)
     send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
     get_settings.write_settings(settings)
 
@@ -1756,6 +1775,10 @@ def on_click(insim, btc):
         auto_indicators = change_setting(auto_indicators)
     elif btc.ClickID == 69:
         auto_siren = change_setting(auto_siren)
+    elif btc.ClickID == 71:
+        settings.image_hud = change_setting(settings.image_hud)
+    elif btc.ClickID == 72:
+        settings.PSC = change_setting(settings.PSC)
     elif btc.ClickID == 66:
         get_brake_dist = True
         own_warn_multi = 1.0
@@ -1814,7 +1837,7 @@ def on_click(insim, btc):
         if not strobe and not text_entry and not shift_pressed:
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/press 0")
-    if 20 <= btc.ClickID <= 28 or 41 <= btc.ClickID <= 43 or btc.ClickID == 50 or btc.ClickID == 68 or btc.ClickID == 69:
+    if 20 <= btc.ClickID <= 28 or 41 <= btc.ClickID <= 43 or btc.ClickID == 50 or 68 <= btc.ClickID <= 69 or 71 <= btc.ClickID <= 73:
         open_menu()
 
     if btc.ClickID == 51:
