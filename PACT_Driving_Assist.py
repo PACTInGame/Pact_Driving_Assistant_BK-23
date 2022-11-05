@@ -52,7 +52,7 @@ set_def = get_settings.get_settings_from_file()
 print(set_def)
 settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
                            set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12], set_def[13],
-                           set_def[14], set_def[15])
+                           set_def[14], set_def[15], set_def[16])
 cont_def = get_settings.get_controls_from_file()
 SHIFT_UP_KEY = cont_def[0]
 SHIFT_DOWN_KEY = cont_def[1]
@@ -1710,13 +1710,15 @@ def open_menu():
                 "{}".format(settings.lane_dep_intensity))
     send_button(71, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 0, 20, 15, 5,
                 "{}HUD-Images".format(settings.image_hud))
+
     if own_control_mode == 2:
         send_button(72, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 25, 5,
                     "{}Stability Control (beta, bad)".format(settings.PSC))
     else:
         send_button(72, pyinsim.ISB_LIGHT , menu_top + 50, 0, 25, 5,
                     "^1Stability Control (only wheel)")
-
+    send_button(73, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 45, 10, 5,
+                "Sound")
     # TODO Grey bus menu when not available
     send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
                 "Bus Menu")

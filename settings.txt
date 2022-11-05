@@ -16,3 +16,4 @@ normal <-- Lane departure warning intensity (early, normal, reduced)
 on <-- Head-up display with images
 off <-- stability control
 1920x1080 <-- Monitor resolution
+0 <-- warning sound (change in menu, when program is active)
