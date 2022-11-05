@@ -252,8 +252,8 @@ def get_vehicle_length(own_car):
     elif own_car == b'BF1':
         brake = 0.7
     elif own_car == b'\x98a\x10':  # CAROBUS
-        length += 4
-        brake = 1.5
+        length += 3
+        brake = 1.6
     elif own_car == b'z\xf8p':  # LKW
         length += 3
         brake = 1.3
@@ -302,8 +302,6 @@ def get_vehicle_redline(c):
         r = 6000
     elif c == b"FZ5":
         r = 7000
-    elif c == b"FZ5":
-        r = 7000
     elif c == b'K\xd2c':  # UF Pick Up
         r = 6000
     elif c == b'\xb4\xdf\xa6':  # Swirl
@@ -338,3 +336,11 @@ def get_vehicle_redline(c):
     else:
         r = 7000
     return r
+
+def get_max_gears(vehicle_model):
+    mg = -1
+    if vehicle_model == b"FZ5":
+        mg = 6
+    elif vehicle_model == b'\x98a\x10':  # CAROBUS
+        mg = 5
+    return mg

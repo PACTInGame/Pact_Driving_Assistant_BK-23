@@ -6,11 +6,11 @@ on <-- Blind spot warning
 on <-- Cross traffic warning
 on <-- Light assist
 on <-- Park assist
-off <-- Emergency assist
+on <-- Emergency assist
 on <-- Lane assist
 on <-- Cop aid system
 on <-- Automatic Emergency Braking
-early <-- Collision Warning Distance (early, medium, late)
+medium <-- Collision Warning Distance (early, medium, late)
 on <-- Automatic Gearbox (when sequential Gearbox is set in LFS)
 normal <-- Lane departure warning intensity (early, normal, reduced)
 on <-- Head-up display with images

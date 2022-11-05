@@ -1,6 +1,6 @@
 from shapely.geometry import Point, Polygon
 
-
+#todo when other track was selected, no autosteer avail
 def load_r(lane):
     with open("data\\lanes\\" + lane + ".txt") as fp:
         filedata = fp.read()

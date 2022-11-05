@@ -216,7 +216,7 @@ def outgauge_packet(outgauge, packet):
 
     if game:
 
-        if packets == 10:
+        if packets == 10 and track == b"WE" or track == b"BL":
             packets = 0
             if active_lane_prep or active_lane:
                 backup = steering
@@ -700,7 +700,6 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-        print(vehicle_model)
         if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and vehicle_model == b"FZ5":
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
@@ -738,8 +737,8 @@ def get_car_data(insim, MCI):
             shift_pressed = True
         else:
             shift_pressed = False
-        if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and vehicle_model == b"FZ5" and auto_clutch == True and own_control_mode == 2:
-            gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm)
+        if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and own_max_gears != -1 and auto_clutch == True and own_control_mode == 2:
+            gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm, redline, own_max_gears, vehicle_model)
             if shift_timer == 0 or own_rpm > 7700:
                 if not text_entry and not shift_pressed and own_gear > 1:
                     gearbox.shift(gear_to_be, own_gear, accelerator_pressure, own_steering)
@@ -750,7 +749,7 @@ def get_car_data(insim, MCI):
             elif own_control_mode != 2:
                 notification("^3Gearbox only with Wheel", 4)
             else:
-                notification("^3Gearbox only with FZ5", 4)
+                notification("^3Gearbox not supported in this car", 4)
             settings.automatic_gearbox = change_setting(settings.automatic_gearbox)
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             bus_route()
@@ -1468,17 +1467,18 @@ def release_mouse():
 # TODO USE MCI SPEED IF NO ABS
 redline = 7000
 own_vehicle_length = 0
-
+own_max_gears = 6
 get_brake_dist = True
 
 
 def head_up_display():
-    global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
+    global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi, own_max_gears
     if vehicle_model_change:
         vehicle_model_change = False
         own_warn_multi = 1.0
         get_brake_dist = False
         redline = helpers.get_vehicle_redline(vehicle_model)
+        own_max_gears = helpers.get_max_gears(vehicle_model)
         own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
 
     if collision_warning_intensity == 0:
@@ -1843,6 +1843,8 @@ def on_click(insim, btc):
     if btc.ClickID == 51:
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             load_bus_menu()
+        else:
+            notification("^1No Routes on this Map", 3)
 
     if btc.ClickID == 52:
         bus_next_stop_sound = not bus_next_stop_sound
@@ -2164,13 +2166,15 @@ def other_assistances():
                     thread_rel_key.start()
         if ema_timer < 15 and active_lane:
             active_lane = False
+
         if ema_timer > 10:
             active_lane_prep = True
         if ema_active and ema_timer <= 15 and own_speed > 5:
             if not text_entry and not shift_pressed:
                 insim.send(pyinsim.ISP_MST,
                            Msg=b"/press 0")
-
+        else:
+            active_lane_prep = False
         if ema_active and ema_timer <= 15:
             ema_active = False
 
