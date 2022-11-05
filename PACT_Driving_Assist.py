@@ -739,7 +739,7 @@ def get_car_data(insim, MCI):
             shift_pressed = False
         if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and own_max_gears != -1 and auto_clutch == True and own_control_mode == 2:
             gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm, redline, own_max_gears, vehicle_model)
-            if shift_timer == 0 or own_rpm > 7700:
+            if shift_timer == 0 or own_rpm > own_max_rpm:
                 if not text_entry and not shift_pressed and own_gear > 1:
                     gearbox.shift(gear_to_be, own_gear, accelerator_pressure, own_steering)
                     shift_timer = 7
@@ -1468,17 +1468,20 @@ def release_mouse():
 redline = 7000
 own_vehicle_length = 0
 own_max_gears = 6
+own_max_rpm = -1
 get_brake_dist = True
 
 
 def head_up_display():
-    global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi, own_max_gears
+    global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
+    global own_max_gears, own_max_rpm
+    print(vehicle_model)
     if vehicle_model_change:
         vehicle_model_change = False
         own_warn_multi = 1.0
         get_brake_dist = False
         redline = helpers.get_vehicle_redline(vehicle_model)
-        own_max_gears = helpers.get_max_gears(vehicle_model)
+        own_max_gears, own_max_rpm = helpers.get_max_gears(vehicle_model)
         own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
 
     if collision_warning_intensity == 0:

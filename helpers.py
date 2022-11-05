@@ -339,8 +339,14 @@ def get_vehicle_redline(c):
 
 def get_max_gears(vehicle_model):
     mg = -1
+    mr = -1
     if vehicle_model == b"FZ5":
         mg = 6
+        mr = 7800
     elif vehicle_model == b'\x98a\x10':  # CAROBUS
         mg = 5
-    return mg
+        mr = 2100
+    elif vehicle_model == b'\xb6i\xbd':  # Luxury Sedan
+        mg = 7
+        mr = 6300
+    return mg, mr
