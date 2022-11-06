@@ -279,6 +279,9 @@ def get_vehicle_length(own_car):
     elif own_car == b'K\xd2c':  # UF Pickup Truck
         brake = 1
         length += 1
+    elif own_car == b'*\x8f-':  # N.400s
+        brake = 0.9
+        length += 1
     return length, brake
 
 
@@ -333,6 +336,8 @@ def get_vehicle_redline(c):
         r = 6000
     elif c == b'\xbc\xe5B':  # Reisebus
         r = 3000
+    elif c == b'*\x8f-':  # N.440S
+        r = 6000
 
     else:
         r = 7000
@@ -357,6 +362,9 @@ def get_max_gears(vehicle_model):
     elif vehicle_model == b'\xac\xb1\xb0':  # Faik Topo
         mg = 6
         mr = 5150
+    elif vehicle_model == b'*\x8f-':  # N.440S
+        mg = 6
+        mr = 6700
     return mg, mr
 
 
