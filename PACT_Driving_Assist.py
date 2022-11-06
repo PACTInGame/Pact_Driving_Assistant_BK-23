@@ -772,7 +772,7 @@ def get_car_data(insim, MCI):
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             bus_route()
     # DATA RECEIVING ---------------
-
+# todo stability control grey if not available
     updated_this_packet = []
     [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
      for data

@@ -1,7 +1,5 @@
 import math
 from pygame import mixer
-
-import setting
 from pyinsim import strmanip
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
@@ -270,8 +268,8 @@ def get_vehicle_length(own_car):
         brake = 1.4
     elif own_car == b'x\x0b!':  # Lory GP5
         brake = 1.1
-    elif own_car == b'\x91\\\xf1':  # Garland
-        brake = 1.05
+    elif own_car == b'>\x8c\x88':  # Bumer 7
+        brake = 1.1
     elif own_car == b'=v{':  # CCF012
         brake = 1.1
     elif own_car == b'\xac\xb1\xb0':  # FAIK TOPO
@@ -338,7 +336,8 @@ def get_vehicle_redline(c):
         r = 3000
     elif c == b'*\x8f-':  # N.440S
         r = 6000
-
+    elif c == b'>\x8c\x88': # Bumer 7
+        r = 5000
     else:
         r = 7000
     return r
@@ -365,6 +364,9 @@ def get_max_gears(vehicle_model):
     elif vehicle_model == b'*\x8f-':  # N.440S
         mg = 6
         mr = 6700
+    elif vehicle_model == b'>\x8c\x88': # Bumer 7
+        mg = 5
+        mr = 5600
     return mg, mr
 
 

@@ -187,6 +187,47 @@ def get_gear(acceleration, brake, gear, rpm, redline, max_gears, vehicle_model):
         else:
             gear_to_be = gear
 
+    elif vehicle_model == b'>\x8c\x88': # Bumer 7
+        if 0.05 < acceleration < 0.2:
+            rpm_set = 2200
+        elif acceleration < 0.4:
+            rpm_set = 2400
+        elif acceleration < 0.6:
+            rpm_set = 2800
+        elif acceleration < 0.7:
+            rpm_set = 3200
+        elif acceleration < 0.8:
+            rpm_set = 3600
+        elif acceleration < 0.9:
+            rpm_set = 4000
+        elif acceleration < 0.95:
+            rpm_set = 4500
+        elif acceleration > 0.94:
+            rpm_set = 5000
+        else:
+            rpm_set = 3000
+        if brake > 0.95:
+            rpm_set = rpm_set + 3700
+
+        elif brake > 0.8:
+            rpm_set = rpm_set + 3000
+
+        elif brake > 0.5:
+            rpm_set = rpm_set + 2000
+
+        if rpm_set > 5100:
+            rpm_set = 5100
+
+        if rpm < rpm_set - 3200:
+            gear_to_be = gear - 3
+        elif rpm < rpm_set - 2800:
+            gear_to_be = gear - 2
+        elif rpm < rpm_set - 2000:
+            gear_to_be = gear - 1
+        elif rpm > rpm_set + 600:
+            gear_to_be = gear + 1
+        else:
+            gear_to_be = gear
     if gear_to_be < 2:
         gear_to_be = 2
     if gear_to_be > max_gears + 1:
