@@ -716,7 +716,7 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and (vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd'):
+        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and (vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
             wheel_support.brake_psc_rwd()
@@ -1729,14 +1729,18 @@ def open_menu():
                 "{}HUD-Images".format(settings.image_hud))
 
     if own_control_mode == 2:
-        send_button(72, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 25, 5,
-                    "{}Stability Control (beta, bad)".format(settings.PSC))
+        if vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd':
+            send_button(72, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 20, 5,
+                        "{}Stability Control (beta)".format(settings.PSC))
+        else:
+            send_button(72, pyinsim.ISB_LIGHT, menu_top + 50, 0, 20, 5,
+                        "^0This car has no ESP yet")
     else:
-        send_button(72, pyinsim.ISB_LIGHT , menu_top + 50, 0, 25, 5,
-                    "^1Stability Control (only wheel)")
+        send_button(72, pyinsim.ISB_LIGHT, menu_top + 50, 0, 20, 5,
+                    "^0Stability Cont. (only wheel yet)")
     send_button(73, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 45, 10, 5,
                 "sound {}".format(settings.collision_warning_sound))
-    # TODO Grey bus menu when not available
+
     send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
                 "Bus Menu")
 

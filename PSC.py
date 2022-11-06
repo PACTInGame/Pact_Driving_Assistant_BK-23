@@ -14,11 +14,9 @@ def calculateStabilityControl(speed, steering, previous_steering):
     # 95 1400
     # 120 900
     steer_threshold = 5000
-    if 120 > speed > 30:
+    if 90 > speed > 25:
         steer_threshold = ((-22) * speed) + 3400
 
-    elif 120 < speed < 200:
-        steer_threshold = ((-5) * speed) + 1500
 
 
     if abs(steering) > steer_threshold:
