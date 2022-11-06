@@ -68,3 +68,19 @@ def steer(steer):
     yPos = yPos + 23
     setJoy(xPos, yPos, zPos, scale)
     vj.close()
+
+
+def brake_psc_rwd():
+    vj.open()
+
+    # valueX(brake), valueY(throttle) between -1000 and 1000, 1000 = 0%, -1000 = 100%
+    # scale between 0 and 16000
+
+    scale = 16.39
+    zPos = 0 + 23
+    xPos = 0
+    yPos = 1000
+    xPos = xPos + 23
+    yPos = yPos + 23
+    setJoy(xPos, yPos, zPos, scale)
+    vj.close()

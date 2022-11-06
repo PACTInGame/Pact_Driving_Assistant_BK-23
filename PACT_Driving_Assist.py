@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import math
 import pyautogui
+from pygame import mixer
 
 import PSC
 import active_lane_keeping
@@ -49,7 +50,6 @@ insim.send(pyinsim.ISP_MSL,
 print('Loading settings')
 time.sleep(0.1)
 set_def = get_settings.get_settings_from_file()
-print(set_def)
 settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
                            set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12], set_def[13],
                            set_def[14], set_def[15], set_def[16])
@@ -117,7 +117,8 @@ warn_multi_arr = []
 auto_indicators = "^2"
 auto_siren = "^2"
 engine_type = "combustion"
-
+indicatorSr = 0
+indicatorSl = 0
 # button 100-110 = park distance control
 # button 10-15 = HUD
 # button 16 = notifications
@@ -212,9 +213,24 @@ def outgauge_packet(outgauge, packet):
     global own_handbrake, own_battery_light, vehicle_model, right_indicator_timer, left_indicator_timer, brake_light
     global vehicle_model_change, own_warn_multi, measuring, measure_param, get_brake_dist, measuring_fast, measuring_very_fast
     global warn_multi_arr, engine_type, active_lane, previous_steering, car_in_control, packets, previous_steering2, previous_steering3
-    global steering
+    global steering, indicatorSr, indicatorSl
 
     if game:
+        if indicatorSr == 0 and indicators[1] == 1:
+            indicatorSr = 1
+            helpers.playsound_indicator_on()
+
+        elif indicatorSr == 1 and indicators[1] == 0:
+            indicatorSr = 0
+            helpers.playsound_indicator_off()
+
+        elif indicatorSl == 0 and indicators[0] == 1:
+            indicatorSl = 1
+            helpers.playsound_indicator_on()
+
+        elif indicatorSl == 1 and indicators[0] == 0:
+            indicatorSl = 0
+            helpers.playsound_indicator_off()
 
         if packets == 10 and track == b"WE" or track == b"BL":
             packets = 0
@@ -700,20 +716,22 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and vehicle_model == b"FZ5":
+        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and (vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd'):
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
-            wheel_support.brake_slow()
+            wheel_support.brake_psc_rwd()
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/axis %.1i brake" % VJOY_AXIS)
-
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
 
         elif pscActive:
             pscActive = False
             if own_control_mode == 2:
                 insim.send(pyinsim.ISP_MST,
                            Msg=b"/axis %.1i brake" % BRAKE_AXIS)
-
+                insim.send(pyinsim.ISP_MST,
+                           Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
             del_button(70)
         own_previous_steering = own_steering
 
@@ -739,7 +757,7 @@ def get_car_data(insim, MCI):
             shift_pressed = False
         if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and own_max_gears != -1 and auto_clutch == True and own_control_mode == 2:
             gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm, redline, own_max_gears, vehicle_model)
-            if shift_timer == 0 or own_rpm > own_max_rpm:
+            if shift_timer == 0 or (own_rpm > own_max_rpm and shift_timer < 3):
                 if not text_entry and not shift_pressed and own_gear > 1:
                     gearbox.shift(gear_to_be, own_gear, accelerator_pressure, own_steering)
                     shift_timer = 7
@@ -1412,8 +1430,7 @@ def collision_warning():
         hud_image = Thread(target=change_image_warn)
         hud_image.start()
         new_warning = False
-        play_warning_thread = Thread(target=helpers.collisionwarningsound)
-        play_warning_thread.start()
+        helpers.collisionwarningsound(settings.collision_warning_sound)
 
     if collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2":
         if own_control_mode == 2:
@@ -1475,8 +1492,8 @@ get_brake_dist = True
 def head_up_display():
     global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
     global own_max_gears, own_max_rpm
-    print(vehicle_model)
     if vehicle_model_change:
+        print(vehicle_model)
         vehicle_model_change = False
         own_warn_multi = 1.0
         get_brake_dist = False
@@ -1547,7 +1564,7 @@ def notification(notification_text, duration_in_sec):
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
     if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 72:
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1718,7 +1735,7 @@ def open_menu():
         send_button(72, pyinsim.ISB_LIGHT , menu_top + 50, 0, 25, 5,
                     "^1Stability Control (only wheel)")
     send_button(73, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 45, 10, 5,
-                "Sound")
+                "sound {}".format(settings.collision_warning_sound))
     # TODO Grey bus menu when not available
     send_button(51, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 55, 0, 20, 5,
                 "Bus Menu")
@@ -1751,6 +1768,7 @@ def close_menu():
     del_button(69)
     del_button(71)
     del_button(72)
+    del_button(73)
     send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
     get_settings.write_settings(settings)
 
@@ -1784,6 +1802,14 @@ def on_click(insim, btc):
         settings.image_hud = change_setting(settings.image_hud)
     elif btc.ClickID == 72:
         settings.PSC = change_setting(settings.PSC)
+    elif btc.ClickID == 73:
+
+        if settings.collision_warning_sound < 5:
+            settings.collision_warning_sound = settings.collision_warning_sound + 1
+
+        else:
+            settings.collision_warning_sound = 1
+        helpers.playsound(settings.collision_warning_sound)
     elif btc.ClickID == 66:
         get_brake_dist = True
         own_warn_multi = 1.0

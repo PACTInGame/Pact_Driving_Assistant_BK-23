@@ -1,10 +1,15 @@
 import math
+from pygame import mixer
+
+import setting
 from pyinsim import strmanip
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 import winsound
 import keyboard as kb
 from park_assist import calc_polygon_points
+
+mixer.init()
 
 
 def closest_cars(cars, own_player_id, own_x, own_y):
@@ -29,8 +34,9 @@ def polygon_contains_point(polygon_list, x, y):
     return polygon.contains(point)
 
 
-def collisionwarningsound():
-    winsound.PlaySound('data\\warning.wav', winsound.SND_FILENAME)
+def collisionwarningsound(sound):
+    mixer.music.load('data\\warning_' + str(sound) + '.wav')
+    mixer.music.play()
 
 
 def emawarningsound():
@@ -40,13 +46,6 @@ def emawarningsound():
 def emawarningsound2():
     winsound.PlaySound('data\\emawarning_intense.wav', winsound.SND_FILENAME)
 
-
-def indicator_on():
-    winsound.PlaySound('indicatorOn.wav', winsound.SND_FILENAME)
-
-
-def indicator_off():
-    winsound.PlaySound('indicatorOff.wav', winsound.SND_FILENAME)
 
 
 def yield_sound():
@@ -277,11 +276,13 @@ def get_vehicle_length(own_car):
         brake = 1.1
     elif own_car == b'\xac\xb1\xb0':  # FAIK TOPO
         brake = 0.95
+    elif own_car == b'K\xd2c':  # UF Pickup Truck
+        brake = 1
+        length += 1
     return length, brake
 
 
 def get_vehicle_redline(c):
-
     if c == b"UF1":
         r = 6000
     elif c == b"XFG":
@@ -337,6 +338,7 @@ def get_vehicle_redline(c):
         r = 7000
     return r
 
+
 def get_max_gears(vehicle_model):
     mg = -1
     mr = -1
@@ -349,4 +351,25 @@ def get_max_gears(vehicle_model):
     elif vehicle_model == b'\xb6i\xbd':  # Luxury Sedan
         mg = 7
         mr = 6300
+    elif vehicle_model == b'K\xd2c':  # UF Pickup Truck
+        mg = 6
+        mr = 6700
+    elif vehicle_model == b'\xac\xb1\xb0':  # Faik Topo
+        mg = 6
+        mr = 5150
     return mg, mr
+
+
+def playsound(sound):
+    mixer.music.load('data\\warning_' + str(sound) + '.wav')
+    mixer.music.play()
+
+
+def playsound_indicator_on():
+    mixer.music.load('data\\indicatorOn.wav')
+    mixer.music.play()
+
+
+def playsound_indicator_off():
+    mixer.music.load('data\\indicatorOff.wav')
+    mixer.music.play()

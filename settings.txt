@@ -14,6 +14,6 @@ medium <-- Collision Warning Distance (early, medium, late)
 on <-- Automatic Gearbox (when sequential Gearbox is set in LFS)
 normal <-- Lane departure warning intensity (early, normal, reduced)
 on <-- Head-up display with images
-off <-- stability control
+on <-- stability control
 1920x1080 <-- Monitor resolution
-0 <-- warning sound (change in menu, when program is active)
+1 <-- warning sound (change in menu, when program is active)
