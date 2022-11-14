@@ -772,7 +772,6 @@ def get_car_data(insim, MCI):
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             bus_route()
     # DATA RECEIVING ---------------
-# todo stability control grey if not available
     updated_this_packet = []
     [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
      for data
@@ -1729,7 +1728,7 @@ def open_menu():
                 "{}HUD-Images".format(settings.image_hud))
 
     if own_control_mode == 2:
-        if vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd':
+        if vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88':
             send_button(72, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 50, 0, 20, 5,
                         "{}Stability Control (beta)".format(settings.PSC))
         else:
