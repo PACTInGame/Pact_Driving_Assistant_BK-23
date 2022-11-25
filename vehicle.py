@@ -2,7 +2,7 @@ import math
 
 
 class Vehicle:
-    def __init__(self, x, y, z, heading, direction, steer_forces, speed, player_id, distance, dynamic):
+    def __init__(self, x, y, z, heading, direction, steer_forces, speed, player_id, distance, dynamic, cname):
         self.x = x
         self.y = y
         self.z = z
@@ -13,6 +13,7 @@ class Vehicle:
         self.player_id = player_id
         self.distance = distance
         self.dynamic = dynamic
+        self.cname = cname
 
     def update_dynamic(self, dynamic):
         self.dynamic = dynamic
@@ -32,4 +33,5 @@ class Vehicle:
         self.speed = speed
         self.player_id = player_id
 
-
+    def update_cname(self, cn):
+        self.cname = cn

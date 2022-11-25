@@ -487,8 +487,11 @@ def new_player(insim, npl):
     for car in cars_on_track:
         cars_already_known.append(car.player_id)
     if npl.PLID not in cars_already_known:
-        cars_on_track.append(Vehicle(0, 0, 0, 0, 0, 0, 0, npl.PLID, 0, 0))
-
+        cars_on_track.append(Vehicle(0, 0, 0, 0, 0, 0, 0, npl.PLID, 0, 0, npl.CName))
+    for car in cars_on_track:
+        if npl.PLID == car.player_id:
+            if car.cname != npl.CName:
+                car.update_cname(npl.CName)
     if npl.PLID == own_player_id:
         flags = [int(i) for i in str("{0:b}".format(npl.Flags))]
         if b"[COP]" in npl.PName:
@@ -531,6 +534,7 @@ def new_player(insim, npl):
         tmp = tmp.replace(b"^8", b"")
         tmp = tmp.replace(b"^9", b"")
         own_player_name = tmp.replace(b"^0", b"")
+
 
 
 def player_left(insim, pll):
@@ -771,6 +775,7 @@ def get_car_data(insim, MCI):
             settings.automatic_gearbox = change_setting(settings.automatic_gearbox)
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             bus_route()
+
     # DATA RECEIVING ---------------
     updated_this_packet = []
     [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
@@ -782,7 +787,7 @@ def get_car_data(insim, MCI):
         if data.PLID not in updated_cars:
             updated_cars.append(data.PLID)
 
-
+# TODO CAR SIZES FOR PDC AND OTHER PDC CAR TO BE DEPENdENT ON SIZE
 siren = False
 strobe = False
 chase = False
@@ -1284,7 +1289,9 @@ def send_pdcbtns(angles, distances):
 
 
 def get_sensor_pdc():
-    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading)
+    own_pdc_length = 11.2
+    own_pdc_width = 2.75
+    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, own_pdc_length, own_pdc_width)
     return sensors
 
 
