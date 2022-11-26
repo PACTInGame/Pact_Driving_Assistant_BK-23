@@ -1289,9 +1289,8 @@ def send_pdcbtns(angles, distances):
 
 
 def get_sensor_pdc():
-    own_pdc_length = 11.2
-    own_pdc_width = 2.75
-    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, own_pdc_length, own_pdc_width)
+
+    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, vehicle_model)
     return sensors
 
 
