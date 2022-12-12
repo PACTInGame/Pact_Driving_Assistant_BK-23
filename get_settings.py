@@ -1,5 +1,5 @@
 def get_settings_from_file():
-    change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal", "^2", "^1", "1920x1080", "0"]
+    change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal", "^2", "^1", "1920x1080", "0", "avg"]
     try:
         with open("settings.txt") as fp:
             for i, line in enumerate(fp):
@@ -37,7 +37,9 @@ def get_settings_from_file():
                     line = line.split()
                     change_set[i - 2] = int(line[0])
 
-
+                if i == 19:
+                    line = line.split()
+                    change_set[i - 2] = str(line[0])
 
 
 
@@ -84,7 +86,8 @@ def write_settings(settings):
                   "{} <-- Head-up display with images\n" \
                   "{} <-- stability control\n" \
                   "{} <-- Monitor resolution\n" \
-                  "{} <-- warning sound (change in menu, when program is active)".format(settings.head_up_display,
+                  "{} <-- warning sound (change in menu, when program is active)\n" \
+                  "{} <-- Trip-computer mode".format(settings.head_up_display,
                                                                                    settings.forward_collision_warning,
                                                                                    settings.blind_spot_warning,
                                                                                    settings.cross_traffic_warning,
@@ -100,7 +103,8 @@ def write_settings(settings):
                                                                                    settings.image_hud,
                                                                                    settings.PSC,
                                                                                    settings.resolution,
-                                                                                   settings.collision_warning_sound)
+                                                                                   settings.collision_warning_sound,
+                                                                                   settings.bc)
 
     file_string = file_string.replace("^2", "on")
     file_string = file_string.replace("^1", "off")

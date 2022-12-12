@@ -2,7 +2,6 @@
 import math
 import pyautogui
 from pygame import mixer
-
 import PSC
 import active_lane_keeping
 import bus_routes
@@ -27,7 +26,7 @@ import tkinter as tk
 
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.9')
+print('PACT DRIVING ASSISTANT VERSION 11.9.2')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
@@ -52,7 +51,7 @@ time.sleep(0.1)
 set_def = get_settings.get_settings_from_file()
 settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
                            set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12], set_def[13],
-                           set_def[14], set_def[15], set_def[16])
+                           set_def[14], set_def[15], set_def[16], set_def[17])
 cont_def = get_settings.get_controls_from_file()
 SHIFT_UP_KEY = cont_def[0]
 SHIFT_DOWN_KEY = cont_def[1]
@@ -119,6 +118,15 @@ auto_siren = "^2"
 engine_type = "combustion"
 indicatorSr = 0
 indicatorSl = 0
+own_fuel_start = 0
+own_fuel_start_capa = 0
+own_fuel_moment = 0
+own_fuel_avg = 0
+own_fuel = 0
+own_fuel_was = 0
+game_time = 0
+own_range = 0
+
 # button 100-110 = park distance control
 # button 10-15 = HUD
 # button 16 = notifications
@@ -136,6 +144,7 @@ indicatorSl = 0
 # button 69 = strobe assist
 # button 70 = ESP
 # button 71-75 = more settings
+# button 76-80 = fuel stuff
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -213,9 +222,11 @@ def outgauge_packet(outgauge, packet):
     global own_handbrake, own_battery_light, vehicle_model, right_indicator_timer, left_indicator_timer, brake_light
     global vehicle_model_change, own_warn_multi, measuring, measure_param, get_brake_dist, measuring_fast, measuring_very_fast
     global warn_multi_arr, engine_type, active_lane, previous_steering, car_in_control, packets, previous_steering2, previous_steering3
-    global steering, indicatorSr, indicatorSl
+    global steering, indicatorSr, indicatorSl, game_time, own_fuel
 
     if game:
+        game_time = packet.Time
+        own_fuel = packet.Fuel
         if indicatorSr == 0 and indicators[1] == 1:
             indicatorSr = 1
             helpers.playsound_indicator_on()
@@ -480,7 +491,7 @@ outgauge = pyinsim.outgauge('127.0.0.1', 30000, outgauge_packet, 30.0)
 
 def new_player(insim, npl):
     global roleplay, own_player_name, game, own_gearbox_mode, own_control_mode, collision_warning_not_cop
-    global auto_clutch
+    global auto_clutch, dist_travelled, own_fuel_start, own_fuel_start_capa, own_fuel_capa
     players[npl.PLID] = npl
 
     cars_already_known = []
@@ -493,6 +504,7 @@ def new_player(insim, npl):
             if car.cname != npl.CName:
                 car.update_cname(npl.CName)
     if npl.PLID == own_player_id:
+
         flags = [int(i) for i in str("{0:b}".format(npl.Flags))]
         if b"[COP]" in npl.PName:
             roleplay = "cop"
@@ -534,7 +546,6 @@ def new_player(insim, npl):
         tmp = tmp.replace(b"^8", b"")
         tmp = tmp.replace(b"^9", b"")
         own_player_name = tmp.replace(b"^0", b"")
-
 
 
 def player_left(insim, pll):
@@ -689,7 +700,9 @@ pscActive = False
 def get_car_data(insim, MCI):
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
-    global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive
+    global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive, own_fuel_was
+    global own_fuel_avg, own_fuel_moment, dist_travelled, own_range, own_fuel_start, own_fuel_start_capa, own_fuel_capa
+
     if time.time() - time_last_check > 0.1:
         time_last_check = time.time()
         cars_previous_speed = temp_previous_speed
@@ -720,7 +733,9 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering, own_previous_steering) and settings.PSC == "^2" and (vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
+        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering,
+                                                                   own_previous_steering) and settings.PSC == "^2" and (
+                vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
             wheel_support.brake_psc_rwd()
@@ -760,7 +775,8 @@ def get_car_data(insim, MCI):
         else:
             shift_pressed = False
         if settings.automatic_gearbox == "^2" and own_gearbox_mode == 2 and own_max_gears != -1 and auto_clutch == True and own_control_mode == 2:
-            gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm, redline, own_max_gears, vehicle_model)
+            gear_to_be = gearbox.get_gear(accelerator_pressure, brake_pressure, own_gear, own_rpm, redline,
+                                          own_max_gears, vehicle_model)
             if shift_timer == 0 or (own_rpm > own_max_rpm and shift_timer < 3):
                 if not text_entry and not shift_pressed and own_gear > 1:
                     gearbox.shift(gear_to_be, own_gear, accelerator_pressure, own_steering)
@@ -776,6 +792,18 @@ def get_car_data(insim, MCI):
         if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
             bus_route()
 
+        dist_travelled = dist_travelled + (own_speed_mci / 3.6) / 5
+        own_fuel_avg, own_fuel_moment, own_range = helpers.calculate_fuel(own_fuel_was, own_fuel, own_fuel_start_capa,
+                                                                          own_fuel_capa, own_speed, dist_travelled)
+        if own_fuel_was < own_fuel:
+            dist_travelled = 0
+            own_fuel_start = time
+            own_fuel_start_capa = own_fuel
+            own_fuel_capa = helpers.get_fuel_capa(vehicle_model)
+        own_fuel_was = own_fuel
+
+        fuel_hud()
+
     # DATA RECEIVING ---------------
     updated_this_packet = []
     [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
@@ -787,7 +815,7 @@ def get_car_data(insim, MCI):
         if data.PLID not in updated_cars:
             updated_cars.append(data.PLID)
 
-# TODO CAR SIZES FOR PDC AND OTHER PDC CAR TO BE DEPENdENT ON SIZE
+
 siren = False
 strobe = False
 chase = False
@@ -1289,7 +1317,6 @@ def send_pdcbtns(angles, distances):
 
 
 def get_sensor_pdc():
-
     sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, vehicle_model)
     return sensors
 
@@ -1492,13 +1519,19 @@ own_vehicle_length = 0
 own_max_gears = 6
 own_max_rpm = -1
 get_brake_dist = True
+own_fuel_capa = -1
+dist_travelled = 0
 
 
 def head_up_display():
     global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
-    global own_max_gears, own_max_rpm
+    global own_max_gears, own_max_rpm, own_fuel_capa, own_fuel_start, own_fuel_start_capa, dist_travelled
     if vehicle_model_change:
         print(vehicle_model)
+        dist_travelled = 0
+        own_fuel_start = time
+        own_fuel_start_capa = own_fuel
+        own_fuel_capa = helpers.get_fuel_capa(vehicle_model)
         vehicle_model_change = False
         own_warn_multi = 1.0
         get_brake_dist = False
@@ -1569,7 +1602,7 @@ def notification(notification_text, duration_in_sec):
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
     if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73:
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 80:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1803,6 +1836,16 @@ def on_click(insim, btc):
 
     if btc.ClickID == 30:
         open_menu()
+    elif btc.ClickID == 76:
+        if settings.bc == "average":
+            settings.bc = "moment"
+        elif settings.bc == "moment":
+            settings.bc = "range"
+        elif settings.bc == "range":
+            settings.bc = "off"
+        elif settings.bc == "off":
+            settings.bc = "average"
+        get_settings.write_settings(settings)
     elif btc.ClickID == 68:
         auto_indicators = change_setting(auto_indicators)
     elif btc.ClickID == 69:
@@ -2256,6 +2299,42 @@ def brake():
                    Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
 
     wheel_support.brake()
+
+
+def fuel_hud():
+    r = own_range - 1
+    r2 = round(r / 10) * 10
+    if 1.9 < r < 2.0:
+        notification("^1< 2km range!", 5)
+    if 9.9 < r < 10.0:
+        notification("^3< 10km range!", 5)
+    if 49.9 < r < 50.0:
+        notification("^7< 50km range!", 5)
+    if settings.bc == "moment":
+        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
+    elif settings.bc == "average":
+        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
+    elif settings.bc == "range":
+
+        if r > 50:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.0i km' % r2)
+        elif r > 10:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.0f km' % r)
+        elif r > 5:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^3%.0f km' % r)
+        elif r > 2:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.1f km' % r)
+        elif r > 1:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.2f km' % r)
+        elif r > 0.5:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.2f km' % r)
+        elif 0 <= r <= 0.5:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1--- km')
+        else:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7calculating')
+
+    elif settings.bc == "off":
+        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 87, 3, 3, 'BC')
 
 
 insim.bind(pyinsim.ISP_MSO, message_handling)

@@ -45,7 +45,6 @@ def emawarningsound2():
     winsound.PlaySound('data\\emawarning_intense.wav', winsound.SND_FILENAME)
 
 
-
 def yield_sound():
     winsound.PlaySound('data\\yield_warn.wav', winsound.SND_FILENAME)
 
@@ -336,7 +335,7 @@ def get_vehicle_redline(c):
         r = 3000
     elif c == b'*\x8f-':  # N.440S
         r = 6000
-    elif c == b'>\x8c\x88': # Bumer 7
+    elif c == b'>\x8c\x88':  # Bumer 7
         r = 5000
     else:
         r = 7000
@@ -364,7 +363,7 @@ def get_max_gears(vehicle_model):
     elif vehicle_model == b'*\x8f-':  # N.440S
         mg = 6
         mr = 6700
-    elif vehicle_model == b'>\x8c\x88': # Bumer 7
+    elif vehicle_model == b'>\x8c\x88':  # Bumer 7
         mg = 5
         mr = 5600
     return mg, mr
@@ -383,3 +382,68 @@ def playsound_indicator_on():
 def playsound_indicator_off():
     mixer.music.load('data\\indicatorOff.wav')
     mixer.music.play()
+
+
+def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
+    if own_capa == -1:
+        return 99, 99
+    if speed > 1:
+        mom = ((last_fuel - now_fuel)*5 * own_capa) / (speed / 3.6) * 1000 * 100
+    else:
+        mom = 99
+    if dist > 1:
+        avg = ((start_capa - now_fuel) * own_capa) / ((dist/1000)/100)
+
+    else:
+        avg = 99
+    if dist > 300:
+        own_range = (now_fuel*own_capa / avg) * 100
+    else:
+        own_range = -1
+
+    if avg > 99:
+        avg = 99
+    if mom > 99:
+        mom = 99
+    return avg, mom, own_range
+
+
+def get_fuel_capa(car):
+    if car == b'UF1':
+        capa = 35
+    elif car == b'XFG':
+        capa = 45
+    elif car == b'XRG':
+        capa = 65
+    elif car == b'LX4':
+        capa = 40
+    elif car == b'LX6':
+        capa = 40
+    elif car == b'RB4' or car == b'FXO' or car == b'XRT':
+        capa = 75
+    elif car == b'RAC':
+        capa = 42
+    elif car == b'FZ5':
+        capa = 90
+    elif car == b'UFR':
+        capa = 60
+    elif car == b'XFR':
+        capa = 70
+    elif car == b'FXR' or car == b'XRR' or car == b'FZR':
+        capa = 100
+    elif car == b'\x98a\x10':  # CAROBUS
+        capa = 240
+    elif car == b'\xb6i\xbd':  # Luxury Sedan
+        capa = 66
+    elif car == b'K\xd2c':  # UF Pickup Truck
+        capa = 137
+    elif car == b'\xac\xb1\xb0':  # Faik Topo
+        capa = 50
+    elif car == b'*\x8f-':  # N.440S
+        capa = 71
+    elif car == b'>\x8c\x88':  # Bumer 7
+        capa = 95
+    else:
+        capa = -1
+
+    return capa
