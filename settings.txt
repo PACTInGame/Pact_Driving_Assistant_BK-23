@@ -17,4 +17,4 @@ on <-- Head-up display with images
 on <-- stability control
 1920x1080 <-- Monitor resolution
 1 <-- warning sound (change in menu, when program is active)
-average <-- Trip-computer mode
+range <-- Trip-computer mode

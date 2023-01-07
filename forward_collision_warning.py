@@ -81,4 +81,6 @@ def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator
                 collision_warning = 1
             elif car[0].distance < (5 + warn_length) + own_speed * 0.05 and collision_warning < 2:
                 collision_warning = 1
+        if 1 < own_speed < 12:
+            collision_warning = 3
     return collision_warning
