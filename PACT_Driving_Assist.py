@@ -31,7 +31,7 @@ while not check_LFS_running.is_lfs_running():
 print("LFS.exe seems to be running. Starting!\n\n")
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.9.2')
+print('PACT DRIVING ASSISTANT VERSION 11.9.4')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
