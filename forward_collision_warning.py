@@ -2,20 +2,31 @@ from shapely.geometry import Polygon
 
 import helpers
 from park_assist import calc_polygon_points
+from park_assist import get_size
 
 
-def calc_brake_distance(rel_speed, acc, br, dynamic):
+def calc_brake_distance(rel_speed, acc, br, dynamic, cname):
+    l, w = get_size(cname)
     if dynamic > 0:
         dynamic = dynamic * ((rel_speed * 0.05) + 1)
     else:
         dynamic = dynamic * 0.5
+    rel_speed2 = rel_speed * rel_speed
+    rel_speed3 = rel_speed2 * rel_speed
+    rel_speed4 = rel_speed3 * rel_speed
 
-    brake_distance = ((
-            -2.09284547856357 * 10 ** -8 * rel_speed ** 4 + 1.10548262781578 + 10 ** -5 * rel_speed ** 3 + 1.10058179124046 * 10 ** -3 * rel_speed ** 2 + 0.107662075560879 * rel_speed + 0.69747816828)) + rel_speed * 0.15 + acc * 2 - br * 4 + dynamic
-    return brake_distance
+    new_brake_distance = 0.0000003303 * rel_speed4 - 0.00002877 * rel_speed3 + 0.003215 * rel_speed2 + 0.07473 * rel_speed - 0.6175 + rel_speed * 0.05 + acc * 2 - br * 4 + dynamic + l / 2 + 2
+    print(new_brake_distance)
+    # brake_distance = ((
+    #        -2.09284547856357 * 10 ** -8 * rel_speed ** 4 + 1.10548262781578 + 10 ** -5 * rel_speed ** 3 +
+    #        1.10058179124046 * 10 ** -3 * rel_speed ** 2 + 0.107662075560879 * rel_speed + 0.69747816828)) +
+    #        rel_speed * 0.15 + acc * 2 - br * 4 + dynamic + l / 2 - 2
+
+    return new_brake_distance
 
 
-def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator, brake, gear, setting, warn_multi, warn_length):
+def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator, brake, gear, setting, warn_multi,
+                         warn_length):
     collision_warning = 0
     angle_of_car = (own_heading + 16384) / 182.05
     if angle_of_car < 0:
@@ -66,18 +77,20 @@ def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator
             multiply = [1.2, 1.7, 2.3]
 
         for i in range(3):
-            multiply[i] = multiply[i]*warn_multi
+            multiply[i] = multiply[i] * warn_multi
 
         if ok and gear > 0 and own_speed > 1 and own_speed - car[0].speed < 130:
 
             if car[0].distance < calc_brake_distance(own_speed - car[0].speed, accelerator, brake,
-                                                     car[0].dynamic) * multiply[0] + warn_length:
+                                                     car[0].dynamic, car[0].cname) * multiply[0] + warn_length:
                 collision_warning = 3
             elif car[0].distance < calc_brake_distance(own_speed - car[0].speed, accelerator, brake,
-                                                       car[0].dynamic) * multiply[1] + warn_length and collision_warning != 3:
+                                                       car[0].dynamic, car[0].cname) * multiply[
+                1] + warn_length and collision_warning != 3:
                 collision_warning = 2
             elif car[0].distance < calc_brake_distance(own_speed - car[0].speed, accelerator, brake,
-                                                       car[0].dynamic) * multiply[2] + warn_length and collision_warning < 2:
+                                                       car[0].dynamic, car[0].cname) * multiply[
+                2] + warn_length and collision_warning < 2:
                 collision_warning = 1
             elif car[0].distance < (5 + warn_length) + own_speed * 0.05 and collision_warning < 2:
                 collision_warning = 1

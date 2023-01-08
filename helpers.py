@@ -1,4 +1,5 @@
 import math
+import subprocess
 from pygame import mixer
 from pyinsim import strmanip
 from shapely.geometry import Point
@@ -224,6 +225,10 @@ def load_yield_polygons(track):
     return list_of_polygons
 
 
+def start_exe():
+    subprocess.run(["start", "Pact_Driving_Assist.exe"], shell=True)
+
+
 def get_vehicle_length(own_car):
     length = 0
     brake = 1.0
@@ -385,19 +390,23 @@ def playsound_indicator_off():
 
 
 def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
+    if dist == 0:
+        dist = 0.1
     if own_capa == -1:
-        return 99, 99
+        return 99, 99, 0
     if speed > 1:
-        mom = ((last_fuel - now_fuel)*5 * own_capa) / (speed / 3.6) * 1000 * 100
+        mom = ((last_fuel - now_fuel) * 5 * own_capa) / (speed / 3.6) * 1000 * 100
     else:
         mom = 99
     if dist > 1:
-        avg = ((start_capa - now_fuel) * own_capa) / ((dist/1000)/100)
+        avg = ((start_capa - now_fuel) * own_capa) / ((dist / 1000) / 100)
 
     else:
         avg = 99
+    if avg == 0:
+        avg = 5
     if dist > 300:
-        own_range = (now_fuel*own_capa / avg) * 100
+        own_range = (now_fuel * own_capa / avg) * 100
     else:
         own_range = -1
 

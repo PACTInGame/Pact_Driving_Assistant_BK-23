@@ -53,7 +53,6 @@ def create_rectangles_for_others(cars):
     rectangles = []
 
     for car in cars:
-        print(car[0].cname)
         angle_of_car = (car[0].heading - 16384) / 182.05
         length, width = get_size(car[0].cname)
         if angle_of_car < 0:

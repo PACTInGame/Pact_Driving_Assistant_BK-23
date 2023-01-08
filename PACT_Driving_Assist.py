@@ -5,6 +5,7 @@ from pygame import mixer
 import PSC
 import active_lane_keeping
 import bus_routes
+import check_LFS_running
 import keyboard
 import load_lane_data
 import pyinsim
@@ -24,6 +25,10 @@ from shapely.geometry import Polygon, Point
 from vehicle import Vehicle
 import tkinter as tk
 
+while not check_LFS_running.is_lfs_running():
+    print("Waiting for LFS to start.")
+    time.sleep(5)
+print("LFS.exe seems to be running. Starting!\n\n")
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
 print('PACT DRIVING ASSISTANT VERSION 11.9.2')
@@ -1422,7 +1427,10 @@ def start_park_assistance():
                     elif park_distance == 0:
                         timer_pdc_sound = 1
                         notification("^1Stop!", 1)
-                    park_assist.makesound(park_distance, angle)
+                    try:
+                        park_assist.makesound(park_distance, angle)
+                    except:
+                        print("It seems like your Windows version cant beep! (Park Assist)")
 
         else:
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
@@ -1527,7 +1535,6 @@ def head_up_display():
     global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
     global own_max_gears, own_max_rpm, own_fuel_capa, own_fuel_start, own_fuel_start_capa, dist_travelled
     if vehicle_model_change:
-        print(vehicle_model)
         dist_travelled = 0
         own_fuel_start = time
         own_fuel_start_capa = own_fuel
@@ -1678,7 +1685,6 @@ def insim_state(insim, sta):
         track = b"LA"
     yield_polygons = helpers.load_yield_polygons(track)
     flags = [int(i) for i in str("{0:b}".format(sta.Flags))]
-
     if len(flags) >= 15:
 
         if not game and flags[-1] == 1 and flags[-15] == 1:
@@ -1701,7 +1707,6 @@ def menu_insim():
     global insim, game, time_menu
     if game:
         game = False
-
         time_menu = time.time()
     insim.unbind(pyinsim.ISP_MCI, get_car_data)
     [del_button(i) for i in range(200)]
