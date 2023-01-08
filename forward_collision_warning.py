@@ -25,11 +25,9 @@ def calc_brake_distance(rel_speed, acc, br, dynamic, cname):
     return new_brake_distance
 
 
-
 def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator, brake, gear, setting, warn_multi,
                          warn_length, own_speed_mci):
-
-    if (own_speed_mci-own_speed > 2):
+    if own_speed_mci - own_speed > 2:
         speed = own_speed_mci
     else:
         speed = own_speed
