@@ -1451,7 +1451,7 @@ def collision_warning():
                                                                                      own_gear,
                                                                                      settings.collision_warning_distance,
                                                                                      own_warn_multi,
-                                                                                     own_vehicle_length)
+                                                                                     own_vehicle_length, own_speed_mci)
     if collision_warning_intensity == 1 and new_pre_warn and settings.head_up_display:
         new_pre_warn = False
         hud_image = Thread(target=change_image_prewarn)

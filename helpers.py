@@ -253,8 +253,8 @@ def get_vehicle_length(own_car):
     elif own_car == b'BF1':
         brake = 0.7
     elif own_car == b'\x98a\x10':  # CAROBUS
-        length += 3
-        brake = 1.6
+        length -= 5
+        brake = 1.9
     elif own_car == b'z\xf8p':  # LKW
         length += 3
         brake = 1.3
