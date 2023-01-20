@@ -822,7 +822,8 @@ def get_car_data(insim, MCI):
         if (settings.park_distance_control == "^1" or chase) and park_assist_active:
             park_assist_active = False
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
-        if own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering,
+
+        if not acc_active and own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering,
                                                                    own_previous_steering) and settings.PSC == "^2" and (
                 vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
@@ -1529,15 +1530,27 @@ new_pre_warn = True
 def collision_warning():
     global collision_warning_intensity, timer_collision_warning_sound, new_warning, current_control, new_pre_warn, acc_active
     if own_speed > 12 or collision_warning_intensity > 0:
-        collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
-                                                                                     own_heading, own_speed,
-                                                                                     accelerator_pressure,
-                                                                                     brake_pressure,
-                                                                                     own_gear,
-                                                                                     settings.collision_warning_distance,
-                                                                                     own_warn_multi,
-                                                                                     own_vehicle_length, own_speed_mci,
-                                                                                     acc_active)
+        if acc_active:
+            collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
+                                                                                         own_heading, own_speed,
+                                                                                         accelerator_pressure,
+                                                                                         brake_pressure,
+                                                                                         own_gear,
+                                                                                         "late",
+                                                                                         own_warn_multi,
+                                                                                         own_vehicle_length, own_speed_mci,
+                                                                                         True)
+        else:
+            collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
+                                                                                         own_heading, own_speed,
+                                                                                         accelerator_pressure,
+                                                                                         brake_pressure,
+                                                                                         own_gear,
+                                                                                         settings.collision_warning_distance,
+                                                                                         own_warn_multi,
+                                                                                         own_vehicle_length,
+                                                                                         own_speed_mci,
+                                                                                         False)
     if collision_warning_intensity == 1 and new_pre_warn and settings.head_up_display:
         new_pre_warn = False
         hud_image = Thread(target=change_image_prewarn)
@@ -1639,13 +1652,13 @@ def head_up_display():
         own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
 
     if collision_warning_intensity == 0:
-        if acc_active and acc_set_speed - 5 < own_speed < acc_set_speed + 5:
-            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f KPH' % own_speed)
+        if acc_active and acc_cars_in_front:
+            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f KPH' % own_speed)
             send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
             send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
             send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
         elif acc_active:
-            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f KPH' % own_speed)
+            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f KPH' % own_speed)
             send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
             send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
             send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
@@ -1712,7 +1725,7 @@ def notification(notification_text, duration_in_sec):
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
     if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 80:
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 81:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1944,10 +1957,28 @@ def on_click(insim, btc):
 
     if btc.ClickID == 30:
         open_menu()
+    elif btc.ClickID == 82:
+        acc_set_speed = acc_set_speed + 5 - (acc_set_speed % 5)
+        if acc_set_speed > 130:
+            acc_set_speed = 130
+    elif btc.ClickID == 83:
+        acc_set_speed = acc_set_speed - 5 - (acc_set_speed % 5)
+        if acc_set_speed < 30:
+            acc_set_speed = 30
     elif btc.ClickID == 10:
-        if not acc_active:
-            acc_set_speed = own_speed
-        acc_active = not acc_active
+
+        if controller_throttle != -1 and controller_brake != -1 and num_joystick != -1:
+            if 29 < own_speed < 131 or (own_speed < 131 and acc_cars_in_front):
+                if not acc_active:
+                    if own_speed < 30:
+                        acc_set_speed = 30
+                    else:
+                        acc_set_speed = own_speed
+                acc_active = not acc_active
+            else:
+                notification("ACC not available!", 3)
+        else:
+            notification("ACC not set up!", 3)
         if not acc_active:
             del_button(81)
             del_button(82)
@@ -2339,13 +2370,13 @@ def other_assistances():
         if ema_active:
             previous_acceleration = accelerator_pressure
 
-        if 8 < ema_timer <= 12:
+        if 8 < ema_timer <= 12 and not acc_active:
             notification("Pay Attention", 1)
 
-        elif 12 <= ema_timer <= 15:
+        elif 12 <= ema_timer <= 15 and not acc_active:
             notification("^1Pay Attention", 2)
 
-        elif ema_timer > 15:
+        elif ema_timer > 15 and not acc_active:
             ema_active = True
 
             notification("^1Stopping Car", 2)

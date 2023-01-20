@@ -245,11 +245,36 @@ def get_cars_in_front(own_heading, own_x, own_y, cars):
     own_rectangle = Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])
     rectangles_others = create_rectangles_for_collision_warning(cars)
     car_in_front = []
+    cars_in_front = []
     for i, rectangle in enumerate(rectangles_others):
         if polygon_intersect(rectangle[1], own_rectangle):
             car_in_front.append(rectangle[0])
 
-    return car_in_front
+    for car in car_in_front:
+
+        ok = False
+        edge = False
+        if car[0].heading + 5000 > 65536:
+            heading_car_two_big = car[0].heading - 65536 + 5000
+            edge = True
+        else:
+            heading_car_two_big = car[0].heading + 5000
+
+        if car[0].heading - 5000 < 0:
+            heading_car_two_small = car[0].heading + 65536 - 5000
+            edge = True
+        else:
+            heading_car_two_small = car[0].heading - 5000
+
+        if edge:
+            if own_heading > heading_car_two_small or own_heading < heading_car_two_big:
+                ok = True
+        else:
+            if heading_car_two_small < own_heading < heading_car_two_big:
+                ok = True
+        if ok:
+            cars_in_front.append(car)
+    return cars_in_front
 
 
 def get_vehicle_length(own_car):
