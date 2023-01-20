@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 import math
 import pyautogui
-from pygame import mixer
 import PSC
 import active_lane_keeping
 import bus_routes
 import check_LFS_running
+import cruise_control
 import keyboard
 import load_lane_data
 import pyinsim
 import random
 import sys
 import time
+import pygame
 from threading import Thread
 import forward_collision_warning
 import gearbox
@@ -70,6 +71,7 @@ VJOY_AXIS2 = int(VJOY_AXIS) + 2
 BRAKE_KEY = cont_def[7]
 ACC_KEY = cont_def[8]
 HANDBRAKE_KEY = cont_def[9]
+controller_throttle, controller_brake, num_joystick = get_settings.get_acc_settings_from_file()
 print('In case you need help, hit me up on Discord: Robert M.#6244')
 
 players = {}
@@ -150,6 +152,7 @@ own_range = 0
 # button 70 = ESP
 # button 71-75 = more settings
 # button 76-80 = fuel stuff
+# button 81-85 = ACC
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -446,7 +449,7 @@ def outgauge_packet(outgauge, packet):
             engine_type = "electric"
         else:
             engine_type = "combustion"
-
+        # TODO regen braking rage support
         if 0.1 <= packet.Fuel <= 0.102:
             if engine_type == "combustion":
                 notification("^3Low Fuel", 1)
@@ -700,6 +703,87 @@ own_z = 0
 timers_timer = 0
 own_previous_steering = 0
 pscActive = False
+acc_active = False
+acc_paused = False
+acc_set_speed = 0
+
+pygame.joystick.init()
+pygame.joystick.get_count()
+joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+pygame.init()
+own_throttle_input = 0
+own_brake_input = 0
+
+insim.send(pyinsim.ISP_MST,
+           Msg=b"/axis %.1i steer" % STEER_AXIS)
+
+
+def check_controller_input():
+    global own_throttle_input, own_brake_input
+    for event in pygame.event.get():
+        if event.type == pygame.JOYAXISMOTION:
+            if event.joy == num_joystick:
+                if event.axis == controller_throttle:
+                    throttle = event.value
+                    own_throttle_input = (throttle - 1) / -2
+                elif event.axis == controller_brake:
+                    brake = event.value
+                    own_brake_input = (brake - 1) / -2
+
+
+acc_override = False
+acc_cars_in_front = False
+
+
+# TODO NO PSC WHILE ACC
+def check_adaptive_cruise_control():
+    global acc_active, acc_paused, acc_set_speed, acc_override, acc_cars_in_front
+    thread_controller = Thread(target=check_controller_input)
+    thread_controller.start()
+    acc_bra = 0
+    cars_in_front = helpers.get_cars_in_front(own_heading, own_x, own_y, cars_relevant)
+    if len(cars_in_front) == 0:
+        acc_cars_in_front = False
+        acc_bra = cruise_control.adaptive_cruise_control(own_speed, 0, 0, 0, False, acc_set_speed)
+    else:
+        acc_cars_in_front = True
+        for car in cars_in_front:
+            rel = car[0].speed - own_speed
+            acc_bra = cruise_control.adaptive_cruise_control(own_speed, rel, car[0].distance, car[0].dynamic, True,
+                                                             acc_set_speed)
+
+    if collision_warning_intensity < 2 and acc_active:
+        wheel_support.acc_control(acc_bra)
+        if own_speed < 0.5 and not acc_paused:
+            thread_press_q = Thread(target=handbrake)
+            thread_press_q.start()
+            notification("^3ACC Paused", 1)
+            acc_paused = True
+    if own_speed > 5 and acc_paused:
+        acc_paused = False
+    if acc_active and own_control_mode == 2:
+        if own_throttle_input > 0.1 and not acc_override:
+            acc_override = True
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
+        elif own_throttle_input < 0.1 and acc_override:
+            acc_override = False
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % VJOY_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
+        if own_brake_input > 0.1:
+            acc_active = False
+            del_button(81)
+            del_button(82)
+            del_button(83)
+            notification("^3ACC Disengaged.", 2)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
 
 
 def get_car_data(insim, MCI):
@@ -808,7 +892,8 @@ def get_car_data(insim, MCI):
         own_fuel_was = own_fuel
 
         fuel_hud()
-
+        acc_thread = Thread(target=check_adaptive_cruise_control)
+        acc_thread.start()
     # DATA RECEIVING ---------------
     updated_this_packet = []
     [car.update_data(data.X, data.Y, data.Z, data.Heading, data.Direction, data.AngVel, data.Speed / 91.02, data.PLID)
@@ -1442,7 +1527,7 @@ new_pre_warn = True
 
 
 def collision_warning():
-    global collision_warning_intensity, timer_collision_warning_sound, new_warning, current_control, new_pre_warn
+    global collision_warning_intensity, timer_collision_warning_sound, new_warning, current_control, new_pre_warn, acc_active
     if own_speed > 12 or collision_warning_intensity > 0:
         collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
                                                                                      own_heading, own_speed,
@@ -1451,7 +1536,8 @@ def collision_warning():
                                                                                      own_gear,
                                                                                      settings.collision_warning_distance,
                                                                                      own_warn_multi,
-                                                                                     own_vehicle_length, own_speed_mci)
+                                                                                     own_vehicle_length, own_speed_mci,
+                                                                                     acc_active)
     if collision_warning_intensity == 1 and new_pre_warn and settings.head_up_display:
         new_pre_warn = False
         hud_image = Thread(target=change_image_prewarn)
@@ -1473,6 +1559,12 @@ def collision_warning():
         helpers.collisionwarningsound(settings.collision_warning_sound)
 
     if collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2":
+        if acc_active:
+            acc_active = False
+            del_button(81)
+            del_button(82)
+            del_button(83)
+            notification("^3ACC Disengaged", 3)
         if own_control_mode == 2:
             brake()
 
@@ -1547,7 +1639,18 @@ def head_up_display():
         own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
 
     if collision_warning_intensity == 0:
-        send_button(10, pyinsim.ISB_DARK, 119, 90, 13, 8, '^7%.1f KPH' % own_speed)
+        if acc_active and acc_set_speed - 5 < own_speed < acc_set_speed + 5:
+            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f KPH' % own_speed)
+            send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
+            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
+            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
+        elif acc_active:
+            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f KPH' % own_speed)
+            send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
+            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
+            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
+        else:
+            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^7%.1f KPH' % own_speed)
         if own_rpm < redline:
             send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
         else:
@@ -1837,10 +1940,29 @@ bus_door_sound = True
 def on_click(insim, btc):
     global settings, strobe, siren, collision_warning_not_cop
     global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
-    global own_warn_multi, get_brake_dist, auto_indicators, auto_siren
+    global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed
 
     if btc.ClickID == 30:
         open_menu()
+    elif btc.ClickID == 10:
+        if not acc_active:
+            acc_set_speed = own_speed
+        acc_active = not acc_active
+        if not acc_active:
+            del_button(81)
+            del_button(82)
+            del_button(83)
+        if acc_active and own_control_mode == 2:
+
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % VJOY_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
+        elif own_control_mode == 2:
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+            insim.send(pyinsim.ISP_MST,
+                       Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
     elif btc.ClickID == 76:
         if settings.bc == "average":
             settings.bc = "moment"
@@ -2316,9 +2438,17 @@ def fuel_hud():
     if 49.9 < r < 50.0:
         notification("^7< 50km range!", 5)
     if settings.bc == "moment":
-        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
+        if engine_type != "electric":
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
+        else:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_moment)
+
     elif settings.bc == "average":
-        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
+        if engine_type != "electric":
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
+        else:
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_avg)
+
     elif settings.bc == "range":
 
         if r > 50:

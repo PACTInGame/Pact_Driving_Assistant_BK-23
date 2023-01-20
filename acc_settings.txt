@@ -1,0 +1,4 @@
+Important: DO NOT CHANGE THIS FILE MANUALLY. PLEASE USE SETUP_CRUISE_CONTROL.exe
+1 Throttle Axis
+4 Brake Axis
+1 Joystick

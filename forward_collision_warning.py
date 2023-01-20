@@ -26,7 +26,7 @@ def calc_brake_distance(rel_speed, acc, br, dynamic, cname):
 
 
 def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator, brake, gear, setting, warn_multi,
-                         warn_length, own_speed_mci):
+                         warn_length, own_speed_mci, accactive):
     if own_speed_mci - own_speed > 2:
         speed = own_speed_mci
     else:
@@ -98,6 +98,6 @@ def check_warning_needed(cars, own_x, own_y, own_heading, own_speed, accelerator
                 collision_warning = 1
             elif car[0].distance < (5 + warn_length) + speed * 0.05 and collision_warning < 2:
                 collision_warning = 1
-        if 1 < speed < 12:
+        if 1 < speed < 12 and accactive:
             collision_warning = 3
     return collision_warning

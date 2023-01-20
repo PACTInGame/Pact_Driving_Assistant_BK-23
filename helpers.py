@@ -229,6 +229,29 @@ def start_exe():
     subprocess.run(["start", "Pact_Driving_Assist.exe"], shell=True)
 
 
+def get_cars_in_front(own_heading, own_x, own_y, cars):
+    angle_of_car = (own_heading + 16384) / 182.05
+    if angle_of_car < 0:
+        angle_of_car *= -1
+    ang1 = angle_of_car + 1
+    ang2 = angle_of_car + 340
+    ang3 = angle_of_car + 20
+    ang4 = angle_of_car + 359
+    (x1, y1) = calc_polygon_points(own_x, own_y, 85 * 65536, ang1)  # front left
+    (x2, y2) = calc_polygon_points(own_x, own_y, 2.0 * 65536, ang2)  # rear left
+    (x3, y3) = calc_polygon_points(own_x, own_y, 2.0 * 65536, ang3)  # rear right
+    (x4, y4) = calc_polygon_points(own_x, own_y, 85 * 65536, ang4)  # front right
+
+    own_rectangle = Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])
+    rectangles_others = create_rectangles_for_collision_warning(cars)
+    car_in_front = []
+    for i, rectangle in enumerate(rectangles_others):
+        if polygon_intersect(rectangle[1], own_rectangle):
+            car_in_front.append(rectangle[0])
+
+    return car_in_front
+
+
 def get_vehicle_length(own_car):
     length = 0
     brake = 1.0
@@ -418,6 +441,7 @@ def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
 
 
 def get_fuel_capa(car):
+    print(car)
     if car == b'UF1':
         capa = 35
     elif car == b'XFG':
@@ -452,6 +476,8 @@ def get_fuel_capa(car):
         capa = 71
     elif car == b'>\x8c\x88':  # Bumer 7
         capa = 95
+    elif car == b'\xbe\xa1e':  # XFG E
+        capa = 48
     else:
         capa = -1
 
