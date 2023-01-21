@@ -68,13 +68,12 @@ def create_rectangles_for_others(cars):
         (x2, y2) = calc_polygon_points(car[0].x, car[0].y, (diagonal + 0.1) * 65536, ang2)  # rear right
         (x3, y3) = calc_polygon_points(car[0].x, car[0].y, (diagonal + 0.1) * 65536, ang3)  # rear left
         (x4, y4) = calc_polygon_points(car[0].x, car[0].y, (diagonal + 0.1) * 65536, ang4)  # front left
-
         rectangles.append((car[1], Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
 
     return rectangles
 
 
-def sensors(cars, own_x, own_y, own_heading, model):
+def sensors(cars, own_x, own_y, own_heading, model, rect_obj):
     sensordata = []
     closest_distance = 4
     angle = 0
@@ -114,20 +113,36 @@ def sensors(cars, own_x, own_y, own_heading, model):
     rectangle_far = Polygon([(x9, y9), (x10, y10), (x11, y11), (x12, y12)])
     rectangle_very_far = Polygon([(x13, y13), (x14, y14), (x15, y15), (x16, y16)])
     rectangles_others = create_rectangles_for_others(cars)
-
+    for obj in rect_obj:
+        rectangles_others.append(obj)
     for rectangle in rectangles_others:
         if helpers.polygon_intersect(rectangle[1], rectangle_close):
             closest_distance = 0
-            angle = rectangle[0]
+            if isinstance(rectangle[0], float):
+                angle = rectangle[0]
+            else:
+                angle = helpers.calculate_angle(own_x, rectangle[0][0], own_y, rectangle[0][1], own_heading)
+
         elif helpers.polygon_intersect(rectangle[1], rectangle_medium) and closest_distance > 0:
             closest_distance = 1
-            angle = rectangle[0]
+            if isinstance(rectangle[0], float):
+                angle = rectangle[0]
+            else:
+                angle = helpers.calculate_angle(own_x, rectangle[0][0], own_y, rectangle[0][1], own_heading)
+
         elif helpers.polygon_intersect(rectangle[1], rectangle_far) and closest_distance > 1:
             closest_distance = 2
-            angle = rectangle[0]
+            if isinstance(rectangle[0], float):
+                angle = rectangle[0]
+            else:
+                angle = helpers.calculate_angle(own_x, rectangle[0][0], own_y, rectangle[0][1], own_heading)
+
         elif helpers.polygon_intersect(rectangle[1], rectangle_very_far) and closest_distance > 2:
             closest_distance = 3
-            angle = rectangle[0]
+            if isinstance(rectangle[0], float):
+                angle = rectangle[0]
+            else:
+                angle = helpers.calculate_angle(own_x, rectangle[0][0], own_y, rectangle[0][1], own_heading)
 
         sensordata.append((closest_distance, angle))
 

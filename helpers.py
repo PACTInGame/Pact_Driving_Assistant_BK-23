@@ -51,6 +51,7 @@ def yield_sound():
 
 
 def polygon_intersect(p1, p2):
+
     return p1.intersects(p2)
 
 
@@ -69,6 +70,44 @@ def calculate_angle(x1, x2, y1, y2, own_heading):
         consider_dir -= 360.0
     angle = consider_dir
     return angle
+
+
+def get_size_of_object(index):
+    if index == 96:
+        length = 3.7
+        width = 0.4
+    elif index == 97:
+        length = 10.2
+        width = 0.4
+    else:
+        length = 1
+        width = 1
+    return length, width
+
+
+def create_rectangles_for_objects(objects, own_x, own_y, own_heading):
+    rectangles = []
+
+    for obj in objects:
+        angle_of_car = (obj.Heading - 16384) / 182.05
+        length, width = get_size_of_object(obj.Index)
+        if angle_of_car < 0:
+            angle_of_car *= -1
+        a1 = math.atan((width / 2) / (length / 2)) * 180 / math.pi
+        ang1 = angle_of_car + a1
+        ang2 = angle_of_car + (180 - a1)
+        ang3 = angle_of_car + (180 + a1)
+        ang4 = angle_of_car + (360 - a1)
+        diagonal = (length / 2) ** 2 + (width / 2) ** 2
+        diagonal = math.sqrt(diagonal)
+        objx = obj.X * 4096
+        objy = obj.Y * 4096
+        (x1, y1) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang1)  # front right
+        (x2, y2) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang2)  # rear right
+        (x3, y3) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang3)  # rear left
+        (x4, y4) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang4)  # front left
+        rectangles.append(([objx, objy], Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
+    return rectangles
 
 
 def create_rectangles_for_blindspot_warning(cars):
@@ -466,7 +505,6 @@ def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
 
 
 def get_fuel_capa(car):
-    print(car)
     if car == b'UF1':
         capa = 35
     elif car == b'XFG':

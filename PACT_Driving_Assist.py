@@ -294,6 +294,7 @@ def outgauge_packet(outgauge, packet):
         if not packet.Car == vehicle_model:
             vehicle_model_change = True
             vehicle_model = packet.Car
+            insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_AXM)
 
         if own_player_id == -1:
             own_player_id = packet.PLID
@@ -747,11 +748,16 @@ def check_adaptive_cruise_control():
         acc_bra = cruise_control.adaptive_cruise_control(own_speed, 0, 0, 0, False, acc_set_speed)
     else:
         acc_cars_in_front = True
+        acc_bra = 1000
         for car in cars_in_front:
             rel = car[0].speed - own_speed
-            acc_bra = cruise_control.adaptive_cruise_control(own_speed, rel, car[0].distance, car[0].dynamic, True,
-                                                             acc_set_speed)
 
+            acc_bra_new = cruise_control.adaptive_cruise_control(own_speed, rel, car[0].distance, car[0].dynamic, True,
+                                                                 acc_set_speed)
+            print(acc_bra_new)
+            if acc_bra_new < acc_bra:  # TODO FIX (probably is)
+                acc_bra = acc_bra_new
+            print(acc_bra)
     if collision_warning_intensity < 2 and acc_active:
         wheel_support.acc_control(acc_bra)
         if own_speed < 0.5 and not acc_paused:
@@ -824,7 +830,7 @@ def get_car_data(insim, MCI):
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
 
         if not acc_active and own_control_mode == 2 and PSC.calculateStabilityControl(own_speed, own_steering,
-                                                                   own_previous_steering) and settings.PSC == "^2" and (
+                                                                                      own_previous_steering) and settings.PSC == "^2" and (
                 vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
             send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
@@ -1408,7 +1414,7 @@ def send_pdcbtns(angles, distances):
 
 
 def get_sensor_pdc():
-    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, vehicle_model)
+    sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, vehicle_model, rectangles_object)
     return sensors
 
 
@@ -1538,7 +1544,8 @@ def collision_warning():
                                                                                          own_gear,
                                                                                          "late",
                                                                                          own_warn_multi,
-                                                                                         own_vehicle_length, own_speed_mci,
+                                                                                         own_vehicle_length,
+                                                                                         own_speed_mci,
                                                                                          True)
         else:
             collision_warning_intensity = forward_collision_warning.check_warning_needed(cars_relevant, own_x, own_y,
@@ -2503,11 +2510,23 @@ def fuel_hud():
         send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 87, 3, 3, 'BC')
 
 
+rectangles_object = []
+
+
+def object_detection(insim, axm):
+    global rectangles_object
+    try:
+        rectangles_object = helpers.create_rectangles_for_objects(axm.Info, own_x, own_y, own_heading)
+        print("Layout data loaded.")
+    except:
+        print("Error while loading layout. No PDC available for layout objects.")
+
 insim.bind(pyinsim.ISP_MSO, message_handling)
 insim.bind(pyinsim.ISP_STA, insim_state)
 insim.bind(pyinsim.ISP_NPL, new_player)
 insim.bind(pyinsim.ISP_PLL, player_left)
 insim.bind(pyinsim.ISP_PLP, player_pits)
 insim.bind(pyinsim.ISP_BTC, on_click)
+insim.bind(pyinsim.ISP_AXM, object_detection)
 
 pyinsim.run()
