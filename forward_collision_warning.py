@@ -14,9 +14,10 @@ def calc_brake_distance(rel_speed, acc, br, dynamic, cname):
     rel_speed2 = rel_speed * rel_speed
     rel_speed3 = rel_speed2 * rel_speed
     rel_speed4 = rel_speed3 * rel_speed
-
-    new_brake_distance = 0.0000003303 * rel_speed4 - 0.00002877 * rel_speed3 + 0.003215 * rel_speed2 + 0.07473 * rel_speed - 0.6175 + rel_speed * 0.05 + acc * 2 - br * 4 + dynamic + l / 2 + 2
-
+    if rel_speed > 0:
+        new_brake_distance = 0.0000003303 * rel_speed4 - 0.00002877 * rel_speed3 + 0.003215 * rel_speed2 + 0.07473 * rel_speed - 0.6175 + rel_speed * 0.05 + acc * 2 - br * 4 + dynamic + l / 2 + 2
+    else:
+        new_brake_distance = 0
     # brake_distance = ((
     #        -2.09284547856357 * 10 ** -8 * rel_speed ** 4 + 1.10548262781578 + 10 ** -5 * rel_speed ** 3 +
     #        1.10058179124046 * 10 ** -3 * rel_speed ** 2 + 0.107662075560879 * rel_speed + 0.69747816828)) +

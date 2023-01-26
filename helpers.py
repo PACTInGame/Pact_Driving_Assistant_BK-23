@@ -51,7 +51,6 @@ def yield_sound():
 
 
 def polygon_intersect(p1, p2):
-
     return p1.intersects(p2)
 
 
@@ -72,16 +71,65 @@ def calculate_angle(x1, x2, y1, y2, own_heading):
     return angle
 
 
+# Index 20-30 Cones
+# Index 49-51 Small Tyres, 53-55 Big Tyres
+# Index 64-91, 160, 161, 168, 169 Markers
+# Index 96 Armco1,
+# Index 97 Armco2,
+# Index 98 Armco3
+# Index 104 Barrier Long
+# Index 105, 106 Barrier Short
+# Index 112, 113 Banners
+# Index 136-139 Posts
+# Index 144 Bale
+# Index 148 Railing
+# Index 149 Start Lights
+# Index 174 Concrete Wall
+# Index 175 Pillar
+# Index 176 Slab Wall
+# Index 177 Ramp Wall
+# Index 178 Short Slab Wall
+
 def get_size_of_object(index):
-    if index == 96:
+    if 20 <= index <= 30:
+        length = 0.8
+        width = 0.8
+    elif 49 <= index <= 51 or 53 <= index <= 55:
+        length = 0.8
+        width = 0.8
+    elif index == 96:
         length = 3.7
         width = 0.4
     elif index == 97:
         length = 10.2
         width = 0.4
-    else:
+    elif index == 98:
+        length = 16.6
+        width = 0.4
+    elif index == 104:
+        length = 8.5
+        width = 0.6
+    elif index == 105 or index == 106:
+        length = 1.5
+        width = 0.5
+    elif index == 112 or index == 113:
         length = 1
-        width = 1
+        width = 6
+    elif 136 <= index <= 139:
+        length = 0.5
+        width = 0.5
+    elif index == 144:
+        length = 0.9
+        width = 1.7
+    elif index == 148:
+        length = 0.6
+        width = 2.5
+    elif index == 149:
+        length = 0.7
+        width = 0.5
+    else:
+        length = 0
+        width = 0
     return length, width
 
 
@@ -89,24 +137,30 @@ def create_rectangles_for_objects(objects, own_x, own_y, own_heading):
     rectangles = []
 
     for obj in objects:
-        angle_of_car = (obj.Heading - 16384) / 182.05
-        length, width = get_size_of_object(obj.Index)
+        angle_of_car = (obj.Heading) * 1.412 + 90
         if angle_of_car < 0:
-            angle_of_car *= -1
-        a1 = math.atan((width / 2) / (length / 2)) * 180 / math.pi
-        ang1 = angle_of_car + a1
-        ang2 = angle_of_car + (180 - a1)
-        ang3 = angle_of_car + (180 + a1)
-        ang4 = angle_of_car + (360 - a1)
-        diagonal = (length / 2) ** 2 + (width / 2) ** 2
-        diagonal = math.sqrt(diagonal)
-        objx = obj.X * 4096
-        objy = obj.Y * 4096
-        (x1, y1) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang1)  # front right
-        (x2, y2) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang2)  # rear right
-        (x3, y3) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang3)  # rear left
-        (x4, y4) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang4)  # front left
-        rectangles.append(([objx, objy], Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
+            angle_of_car = 360 + angle_of_car
+        if angle_of_car > 360:
+            angle_of_car = angle_of_car - 360
+        length, width = get_size_of_object(obj.Index)
+        if length != 0:
+            if angle_of_car < 0:
+                angle_of_car *= -1
+            a1 = math.atan((width / 2) / (length / 2)) * 180 / math.pi
+            ang1 = angle_of_car + a1
+            ang2 = angle_of_car + (180 - a1)
+            ang3 = angle_of_car + (180 + a1)
+            ang4 = angle_of_car + (360 - a1)
+            diagonal = (length / 2) ** 2 + (width / 2) ** 2
+            diagonal = math.sqrt(diagonal)
+            objx = obj.X * 4096
+            objy = obj.Y * 4096
+            (x1, y1) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang1)  # front right
+            (x2, y2) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang2)  # rear right
+            (x3, y3) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang3)  # rear left
+            (x4, y4) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang4)  # front left
+            rectangles.append(([objx, objy], Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
+
     return rectangles
 
 
@@ -429,6 +483,8 @@ def get_vehicle_redline(c):
         r = 6000
     elif c == b'>\x8c\x88':  # Bumer 7
         r = 5000
+    elif c == b'\xbe\xa1e':
+        r = 13000
     else:
         r = 7000
     return r
@@ -519,7 +575,7 @@ def get_fuel_capa(car):
         capa = 75
     elif car == b'RAC':
         capa = 42
-    elif car == b'FZ5':
+    elif car == b'FZ5' or car == b'_\x1d*' or car == b'\xeb\xce9': # FZ5 Lightbar, Safetycar
         capa = 90
     elif car == b'UFR':
         capa = 60
@@ -541,7 +597,24 @@ def get_fuel_capa(car):
         capa = 95
     elif car == b'\xbe\xa1e':  # XFG E
         capa = 48
+    elif car == b'\n\xe8\x9e' or car == b'\xaah\x1a': # FEND BR
+        capa = 78.7
+    elif car == b'\x85\xc4\xa4': # Chorus Attendanze
+        capa = 30
+    elif car == b'\xfa\xae\xe2': # ETK - K series
+        capa = 75
+    elif car == b'\xb7\x83K': # Cammera 730 T
+        capa = 136.7
+    elif car == b'\xb7\x83K': # UF Electric
+        capa = 38
+    elif car == b'6=j': # Tiny Cupe
+        capa = 50
+    elif car == b'\xce\xd9v' or car == b'\x13>\xcb': # GT V-34, God foot
+        capa = 65
+    elif car == b'H1`' or car == b'J\x08\xc8': # Bimmy M46, BZG SUV
+        capa = 75
+    elif car == b'\xfa5\xe7': # XFG YARIS
+        capa = 50
     else:
         capa = -1
-
     return capa

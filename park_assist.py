@@ -9,10 +9,10 @@ import helpers
 def get_size(cn):
     l = 4.6
     w = 2
-    if cn == b'\x98a\x10': #Karobus
+    if cn == b'\x98a\x10':  # Karobus
         l = 11.2
         w = 2.75
-    elif cn == b'\xb6i\xbd': #Luxury sedan
+    elif cn == b'\xb6i\xbd':  # Luxury sedan
         l = 5.1
     elif cn == b'UF1':
         l = 3.1
@@ -23,10 +23,10 @@ def get_size(cn):
     elif cn == b'RB4':
         l = 4.5
         w = 1.8
-    elif cn == b'>\x8c\x88': # bumer 7
+    elif cn == b'>\x8c\x88':  # bumer 7
         l = 5.2
         w = 1.9
-    elif cn == b'K\xd2c': # Uf Pickup
+    elif cn == b'K\xd2c':  # Uf Pickup
         l = 5.2
         w = 2.2
     elif cn == b'\xa4\xc2\xf3':  # Line Runner
@@ -116,6 +116,7 @@ def sensors(cars, own_x, own_y, own_heading, model, rect_obj):
     for obj in rect_obj:
         rectangles_others.append(obj)
     for rectangle in rectangles_others:
+
         if helpers.polygon_intersect(rectangle[1], rectangle_close):
             closest_distance = 0
             if isinstance(rectangle[0], float):

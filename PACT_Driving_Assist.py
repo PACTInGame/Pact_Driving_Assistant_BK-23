@@ -32,7 +32,7 @@ while not check_LFS_running.is_lfs_running():
 print("LFS.exe seems to be running. Starting!\n\n")
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.9.4')
+print('PACT DRIVING ASSISTANT VERSION 11.9.9')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
@@ -230,26 +230,27 @@ def outgauge_packet(outgauge, packet):
     global own_handbrake, own_battery_light, vehicle_model, right_indicator_timer, left_indicator_timer, brake_light
     global vehicle_model_change, own_warn_multi, measuring, measure_param, get_brake_dist, measuring_fast, measuring_very_fast
     global warn_multi_arr, engine_type, active_lane, previous_steering, car_in_control, packets, previous_steering2, previous_steering3
-    global steering, indicatorSr, indicatorSl, game_time, own_fuel
+    global steering, indicatorSr, indicatorSl, game_time, own_fuel, rectangles_object
 
     if game:
         game_time = packet.Time
         own_fuel = packet.Fuel
-        if indicatorSr == 0 and indicators[1] == 1:
-            indicatorSr = 1
-            helpers.playsound_indicator_on()
+        if roleplay == "civil":
+            if indicatorSr == 0 and indicators[1] == 1:
+                indicatorSr = 1
+                helpers.playsound_indicator_on()
 
-        elif indicatorSr == 1 and indicators[1] == 0:
-            indicatorSr = 0
-            helpers.playsound_indicator_off()
+            elif indicatorSr == 1 and indicators[1] == 0:
+                indicatorSr = 0
+                helpers.playsound_indicator_off()
 
-        elif indicatorSl == 0 and indicators[0] == 1:
-            indicatorSl = 1
-            helpers.playsound_indicator_on()
+            elif indicatorSl == 0 and indicators[0] == 1:
+                indicatorSl = 1
+                helpers.playsound_indicator_on()
 
-        elif indicatorSl == 1 and indicators[0] == 0:
-            indicatorSl = 0
-            helpers.playsound_indicator_off()
+            elif indicatorSl == 1 and indicators[0] == 0:
+                indicatorSl = 0
+                helpers.playsound_indicator_off()
 
         if packets == 10 and track == b"WE" or track == b"BL":
             packets = 0
@@ -294,6 +295,7 @@ def outgauge_packet(outgauge, packet):
         if not packet.Car == vehicle_model:
             vehicle_model_change = True
             vehicle_model = packet.Car
+            rectangles_object = []
             insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_AXM)
 
         if own_player_id == -1:
@@ -450,7 +452,6 @@ def outgauge_packet(outgauge, packet):
             engine_type = "electric"
         else:
             engine_type = "combustion"
-        # TODO regen braking rage support
         if 0.1 <= packet.Fuel <= 0.102:
             if engine_type == "combustion":
                 notification("^3Low Fuel", 1)
@@ -736,7 +737,6 @@ acc_override = False
 acc_cars_in_front = False
 
 
-# TODO NO PSC WHILE ACC
 def check_adaptive_cruise_control():
     global acc_active, acc_paused, acc_set_speed, acc_override, acc_cars_in_front
     thread_controller = Thread(target=check_controller_input)
@@ -754,10 +754,8 @@ def check_adaptive_cruise_control():
 
             acc_bra_new = cruise_control.adaptive_cruise_control(own_speed, rel, car[0].distance, car[0].dynamic, True,
                                                                  acc_set_speed)
-            print(acc_bra_new)
-            if acc_bra_new < acc_bra:  # TODO FIX (probably is)
+            if acc_bra_new < acc_bra:
                 acc_bra = acc_bra_new
-            print(acc_bra)
     if collision_warning_intensity < 2 and acc_active:
         wheel_support.acc_control(acc_bra)
         if own_speed < 0.5 and not acc_paused:
@@ -891,11 +889,12 @@ def get_car_data(insim, MCI):
         dist_travelled = dist_travelled + (own_speed_mci / 3.6) / 5
         own_fuel_avg, own_fuel_moment, own_range = helpers.calculate_fuel(own_fuel_was, own_fuel, own_fuel_start_capa,
                                                                           own_fuel_capa, own_speed, dist_travelled)
-        if own_fuel_was < own_fuel:
+        if own_fuel_was < own_fuel and engine_type != "electric":
             dist_travelled = 0
             own_fuel_start = time
             own_fuel_start_capa = own_fuel
             own_fuel_capa = helpers.get_fuel_capa(vehicle_model)
+
         own_fuel_was = own_fuel
 
         fuel_hud()
@@ -1113,7 +1112,7 @@ def lane_assist():
                     if string_lane == '^3/ \\':
                         del_button(48)
                     string_lane = '^2/ \\'
-                send_button(48, pyinsim.ISB_DARK, 119, 85, 5, 8, string_lane)
+                send_button(48, pyinsim.ISB_DARK, 119, 84, 3, 3, string_lane)
             else:
                 del_button(48)
             if not lane_departure_l and not lane_departure_r and buttons_on_screen[47] == 1:
@@ -1132,7 +1131,7 @@ def right_lane_btn():
     global lane_btn_timer, ema_timer
     if buttons_on_screen[46] == 0:
         del_button(48)
-        send_button(46, pyinsim.ISB_DARK, 119, 120, 6, 8, '^1|')
+        send_button(46, pyinsim.ISB_DARK, 119, 120, 3, 3, '^1|')
     else:
         del_button(46)
     lane_btn_timer += 30
@@ -1151,7 +1150,7 @@ def left_lane_btn():
     global lane_btn_timer, ema_timer
     if buttons_on_screen[47] == 0:
         del_button(48)
-        send_button(47, pyinsim.ISB_DARK, 119, 84, 6, 8, '^1|')
+        send_button(47, pyinsim.ISB_DARK, 119, 84, 3, 3, '^1|')
     else:
         del_button(47)
     lane_btn_timer += 40
@@ -1486,12 +1485,12 @@ def start_park_assistance():
     global timer_pdc_sound
     global park_assist_active
     global slow_timer
+
     if game:
         if own_speed > 12:
             slow_timer = 10
-        if slow_timer == 0 and len(cars_relevant) > 0:
-            park_assist_active = True
-            send_button(109, pyinsim.ISB_DARK, 119, 116, 4, 4, '^7PDC')
+        if slow_timer == 0 and (len(cars_relevant) > 0 or len(rectangles_object) > 0):
+
             sensors = get_sensor_pdc()
             angles = []
             distances = []
@@ -1501,28 +1500,31 @@ def start_park_assistance():
 
             park_distance = min(distances)
 
-            send_pdcbtns(angles, distances)
+            if park_distance < 4:
+                park_assist_active = True
+                send_button(109, pyinsim.ISB_DARK, 119, 116, 4, 4, '^7PDC')
+                send_pdcbtns(angles, distances)
 
-            angle = 0
-            for i, j in enumerate(distances):
-                if j == min(distances):
-                    angle = angles[i]
+                angle = 0
+                for i, j in enumerate(distances):
+                    if j == min(distances):
+                        angle = angles[i]
 
-            if timer_pdc_sound == 0:
-                if park_distance < 4 and own_speed > 0.1 and timer_pdc_sound == 0:
-                    if park_distance == 3:
-                        timer_pdc_sound = 4
-                    elif park_distance == 2:
-                        timer_pdc_sound = 3
-                    elif park_distance == 1:
-                        timer_pdc_sound = 2
-                    elif park_distance == 0:
-                        timer_pdc_sound = 1
-                        notification("^1Stop!", 1)
-                    try:
-                        park_assist.makesound(park_distance, angle)
-                    except:
-                        print("It seems like your Windows version cant beep! (Park Assist)")
+                if timer_pdc_sound == 0:
+                    if park_distance < 4 and own_speed > 0.1 and timer_pdc_sound == 0:
+                        if park_distance == 3:
+                            timer_pdc_sound = 4
+                        elif park_distance == 2:
+                            timer_pdc_sound = 3
+                        elif park_distance == 1:
+                            timer_pdc_sound = 2
+                        elif park_distance == 0:
+                            timer_pdc_sound = 1
+                            notification("^1Stop!", 1)
+                        try:
+                            park_assist.makesound(park_distance, angle)
+                        except:
+                            print("It seems like your Windows version cant beep! (Park Assist)")
 
         else:
             [del_button(i) for i in range(101, 110) if buttons_on_screen[i] == 1]
@@ -1633,7 +1635,6 @@ def release_mouse():
     pyautogui.mouseUp(button="right")
 
 
-# TODO USE MCI SPEED IF NO ABS
 redline = 7000
 own_vehicle_length = 0
 own_max_gears = 6
@@ -1975,7 +1976,7 @@ def on_click(insim, btc):
     elif btc.ClickID == 10:
 
         if controller_throttle != -1 and controller_brake != -1 and num_joystick != -1:
-            if 29 < own_speed < 131 or (own_speed < 131 and acc_cars_in_front):
+            if (29 < own_speed < 131 or (own_speed < 131 and acc_cars_in_front) or acc_active) and own_control_mode == 2:
                 if not acc_active:
                     if own_speed < 30:
                         acc_set_speed = 30
@@ -2052,6 +2053,10 @@ def on_click(insim, btc):
         settings.emergency_assist = change_setting(settings.emergency_assist)
     elif btc.ClickID == 26:
         settings.lane_assist = change_setting(settings.lane_assist)
+        if settings.lane_assist == "^1":
+            del_button(46)
+            del_button(47)
+            del_button(48)
     elif btc.ClickID == 27:
         settings.park_distance_control = change_setting(settings.park_distance_control)
     elif btc.ClickID == 41:
@@ -2157,7 +2162,7 @@ def message_handling(insim, mso):
         own_player_name_str = str(own_player_name)
         own_player_name_str = own_player_name_str.replace("b'", "")
         own_player_name_str = own_player_name_str.replace("'", "")
-
+        print(mso.Msg)
         if message_handling_error_count < 8:
             stop_str = "Stop complete.".encode()
             route1_str = (own_player_name_str + "none_route").encode()
@@ -2169,50 +2174,50 @@ def message_handling(insim, mso):
             route7_str = (own_player_name_str + "none_route").encode()
             route8_str = (own_player_name_str + "none_route").encode()
             if track == b"BL":
-                route1_str = (own_player_name_str + "^L^L started Red Route").encode()
-                route2_str = (own_player_name_str + "^L^L started Blue Route").encode()
-                route3_str = (own_player_name_str + "^L^L started Yellow Route").encode()
-                route4_str = (own_player_name_str + "^L^L started Green Route").encode()
+                route1_str = (own_player_name_str + "^L started Red Route").encode()
+                route2_str = (own_player_name_str + "^L started Blue Route").encode()
+                route3_str = (own_player_name_str + "^L started Yellow Route").encode()
+                route4_str = (own_player_name_str + "^L started Green Route").encode()
 
             elif track == b"SO":
-                route1_str = (own_player_name_str + "^L^L started Southern Route Short").encode()
-                route2_str = (own_player_name_str + "^L^L started Southern Route Short Rev").encode()
-                route3_str = (own_player_name_str + "^L^L started Southern Route Long").encode()
-                route4_str = (own_player_name_str + "^L^L started Southern Route Long Rev").encode()
-                route5_str = (own_player_name_str + "^L^L started Castle Hill Route").encode()
-                route6_str = (own_player_name_str + "^L^L started Castle Hill Route Rev").encode()
-                route7_str = (own_player_name_str + "^L^L started Le Grand Tour").encode()
+                route1_str = (own_player_name_str + "^L started Southern Route Short").encode()
+                route2_str = (own_player_name_str + "^L started Southern Route Short Rev").encode()
+                route3_str = (own_player_name_str + "^L started Southern Route Long").encode()
+                route4_str = (own_player_name_str + "^L started Southern Route Long Rev").encode()
+                route5_str = (own_player_name_str + "^L started Castle Hill Route").encode()
+                route6_str = (own_player_name_str + "^L started Castle Hill Route Rev").encode()
+                route7_str = (own_player_name_str + "^L started Le Grand Tour").encode()
 
             elif track == b"FE":
-                route1_str = (own_player_name_str + "^L^L started Eastern Short Route").encode()
-                route2_str = (own_player_name_str + "^L^L started Eastern Short Route Rev").encode()
-                route3_str = (own_player_name_str + "^L^L started Eastern Route").encode()
-                route4_str = (own_player_name_str + "^L^L started Eastern Route Rev").encode()
-                route5_str = (own_player_name_str + "^L^L started The Grand Tour").encode()
-                route6_str = (own_player_name_str + "^L^L started The Grand Tour Rev").encode()
-                route7_str = (own_player_name_str + "^L^L started Transit West").encode()
+                route1_str = (own_player_name_str + "^L started Eastern Short Route").encode()
+                route2_str = (own_player_name_str + "^L started Eastern Short Route Rev").encode()
+                route3_str = (own_player_name_str + "^L started Eastern Route").encode()
+                route4_str = (own_player_name_str + "^L started Eastern Route Rev").encode()
+                route5_str = (own_player_name_str + "^L started The Grand Tour").encode()
+                route6_str = (own_player_name_str + "^L started The Grand Tour Rev").encode()
+                route7_str = (own_player_name_str + "^L started Transit West").encode()
 
             elif track == b"AS":
-                route1_str = (own_player_name_str + "^L^L started Route 1").encode()
-                route2_str = (own_player_name_str + "^L^L started Route 1 Rev").encode()
-                route3_str = (own_player_name_str + "^L^L started Route 2").encode()
-                route4_str = (own_player_name_str + "^L^L started Route 2 Rev").encode()
-                route5_str = (own_player_name_str + "^L^L started Route 3").encode()
-                route6_str = (own_player_name_str + "^L^L started Route 3 Rev").encode()
-                route7_str = (own_player_name_str + "^L^L started Route 4").encode()
-                route8_str = (own_player_name_str + "^L^L started Route 4 Rev").encode()
+                route1_str = (own_player_name_str + "^L started Route 1").encode()
+                route2_str = (own_player_name_str + "^L started Route 1 Rev").encode()
+                route3_str = (own_player_name_str + "^L started Route 2").encode()
+                route4_str = (own_player_name_str + "^L started Route 2 Rev").encode()
+                route5_str = (own_player_name_str + "^L started Route 3").encode()
+                route6_str = (own_player_name_str + "^L started Route 3 Rev").encode()
+                route7_str = (own_player_name_str + "^L started Route 4").encode()
+                route8_str = (own_player_name_str + "^L started Route 4 Rev").encode()
 
             elif track == b"KY":
-                route1_str = (own_player_name_str + "^L^L started Route 1 Long").encode()
-                route2_str = (own_player_name_str + "^L^L started Route 1 Rev").encode()
-                route3_str = (own_player_name_str + "^L^L started Route 1").encode()
-                route4_str = (own_player_name_str + "^L^L started Route 2").encode()
+                route1_str = (own_player_name_str + "^L started Route 1 Long").encode()
+                route2_str = (own_player_name_str + "^L started Route 1 Rev").encode()
+                route3_str = (own_player_name_str + "^L started Route 1").encode()
+                route4_str = (own_player_name_str + "^L started Route 2").encode()
 
             elif track == b"WE":
-                route1_str = (own_player_name_str + "^L^L started Yellow Route").encode()
-                route2_str = (own_player_name_str + "^L^L started Green Route").encode()
-                route3_str = (own_player_name_str + "^L^L started Red Route").encode()
-                route4_str = (own_player_name_str + "^L^L started Blue Route").encode()
+                route1_str = (own_player_name_str + "^L started Yellow Route").encode()
+                route2_str = (own_player_name_str + "^L started Green Route").encode()
+                route3_str = (own_player_name_str + "^L started Red Route").encode()
+                route4_str = (own_player_name_str + "^L started Blue Route").encode()
 
             route_message = mso.Msg
             route_message = str(route_message)
@@ -2475,36 +2480,40 @@ def fuel_hud():
         notification("^3< 10km range!", 5)
     if 49.9 < r < 50.0:
         notification("^7< 50km range!", 5)
+    if roleplay == "civil":
+        h = 113
+    else:
+        h = 109
     if settings.bc == "moment":
         if engine_type != "electric":
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
         else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_moment)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_moment)
 
     elif settings.bc == "average":
         if engine_type != "electric":
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
         else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_avg)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.1f kwh/100km' % own_fuel_avg)
 
     elif settings.bc == "range":
 
         if r > 50:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.0i km' % r2)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.0i km' % r2)
         elif r > 10:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7%.0f km' % r)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7%.0f km' % r)
         elif r > 5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^3%.0f km' % r)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^3%.0f km' % r)
         elif r > 2:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.1f km' % r)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^1%.1f km' % r)
         elif r > 1:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.2f km' % r)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^1%.2f km' % r)
         elif r > 0.5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1%.2f km' % r)
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^1%.2f km' % r)
         elif 0 <= r <= 0.5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^1--- km')
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^1--- km')
         else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 113, 90, 13, 6, '^7calculating')
+            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, 90, 13, 6, '^7calculating')
 
     elif settings.bc == "off":
         send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 87, 3, 3, 'BC')
@@ -2516,10 +2525,13 @@ rectangles_object = []
 def object_detection(insim, axm):
     global rectangles_object
     try:
-        rectangles_object = helpers.create_rectangles_for_objects(axm.Info, own_x, own_y, own_heading)
-        print("Layout data loaded.")
+        rectangles_object_temp = helpers.create_rectangles_for_objects(axm.Info, own_x, own_y, own_heading)
+        for obj in rectangles_object_temp:
+            rectangles_object.append(obj)
+
     except:
         print("Error while loading layout. No PDC available for layout objects.")
+
 
 insim.bind(pyinsim.ISP_MSO, message_handling)
 insim.bind(pyinsim.ISP_STA, insim_state)
