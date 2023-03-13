@@ -485,6 +485,10 @@ def get_vehicle_redline(c):
         r = 5000
     elif c == b'\xbe\xa1e':
         r = 13000
+    elif c == b'?!?':  # TSV8
+        r = 2000
+    elif c == b'\xcf\xee\x83':  # TSV8
+        r = 3000
     else:
         r = 7000
     return r
@@ -575,7 +579,7 @@ def get_fuel_capa(car):
         capa = 75
     elif car == b'RAC':
         capa = 42
-    elif car == b'FZ5' or car == b'_\x1d*' or car == b'\xeb\xce9': # FZ5 Lightbar, Safetycar
+    elif car == b'FZ5' or car == b'_\x1d*' or car == b'\xeb\xce9' or car == b'4\x96\xde': # FZ5 Lightbar, Safetycar, FZ5 Turbo
         capa = 90
     elif car == b'UFR':
         capa = 60
@@ -585,7 +589,7 @@ def get_fuel_capa(car):
         capa = 100
     elif car == b'\x98a\x10':  # CAROBUS
         capa = 240
-    elif car == b'\xb6i\xbd':  # Luxury Sedan
+    elif car == b'\xb6i\xbd' or car == b'\xa5\x90\xc6':  # Luxury Sedan, SV
         capa = 66
     elif car == b'K\xd2c':  # UF Pickup Truck
         capa = 137
@@ -615,6 +619,26 @@ def get_fuel_capa(car):
         capa = 75
     elif car == b'\xfa5\xe7': # XFG YARIS
         capa = 50
+    elif car == b'Z\x1f\x80': # MUN Firetruck
+        capa = 300
+    elif car == b'\xcd\x87U': # Adda Ar-Eight
+        capa = 73
+    elif car == b'\xd6\x11n': # Frerri F90
+        capa = 70
+    elif car == b'R\xea/': # XR E-GT
+        capa = 53
+    elif car == b'?!?': # TSV8
+        capa = 381.9
+    elif car == b'\xcf\xee\x83': # RTS 6-71
+        capa = 200
+    elif car == b'z\xf8p': # LCT 300
+        capa = 100
+    elif car == b'\x89)\xfa': # E-Challenger
+        capa = 57
+    elif car == b'\xdc\xb8\xb7': # Formula XR-E
+        capa = 40
+    elif car == b'BF1':
+        capa = 95
     else:
         capa = -1
     return capa

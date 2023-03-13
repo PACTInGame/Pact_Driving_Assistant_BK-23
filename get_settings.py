@@ -1,6 +1,6 @@
 def get_settings_from_file():
     change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal", "^2", "^1",
-                  "1920x1080", "0", "avg"]
+                  "1920x1080", "0", "avg", "metric"]
     try:
         with open("settings.txt") as fp:
             for i, line in enumerate(fp):
@@ -42,6 +42,9 @@ def get_settings_from_file():
                     line = line.split()
                     change_set[i - 2] = str(line[0])
 
+                if i == 20:
+                    line = line.split()
+                    change_set[i - 2] = str(line[0])
         print("Settings loaded successfully")
         return change_set
 
@@ -111,7 +114,8 @@ def write_settings(settings):
                   "{} <-- stability control\n" \
                   "{} <-- Monitor resolution\n" \
                   "{} <-- warning sound (change in menu, when program is active)\n" \
-                  "{} <-- Trip-computer mode".format(settings.head_up_display,
+                  "{} <-- Trip-computer mode\n"\
+                  "{} <-- unit".format(settings.head_up_display,
                                                      settings.forward_collision_warning,
                                                      settings.blind_spot_warning,
                                                      settings.cross_traffic_warning,
@@ -128,7 +132,8 @@ def write_settings(settings):
                                                      settings.PSC,
                                                      settings.resolution,
                                                      settings.collision_warning_sound,
-                                                     settings.bc)
+                                                     settings.bc,
+                                                     settings.unit)
 
     file_string = file_string.replace("^2", "on")
     file_string = file_string.replace("^1", "off")

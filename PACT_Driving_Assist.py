@@ -26,13 +26,14 @@ from shapely.geometry import Polygon, Point
 from vehicle import Vehicle
 import tkinter as tk
 
+
 while not check_LFS_running.is_lfs_running():
     print("Waiting for LFS to start.")
     time.sleep(5)
 print("LFS.exe seems to be running. Starting!\n\n")
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.9.9')
+print('PACT DRIVING ASSISTANT VERSION 11.9.9.1')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
@@ -57,7 +58,7 @@ time.sleep(0.1)
 set_def = get_settings.get_settings_from_file()
 settings = setting.Setting(set_def[0], set_def[1], set_def[2], set_def[3], set_def[4], set_def[5], set_def[6],
                            set_def[7], set_def[8], set_def[9], set_def[10], set_def[11], set_def[12], set_def[13],
-                           set_def[14], set_def[15], set_def[16], set_def[17])
+                           set_def[14], set_def[15], set_def[16], set_def[17], set_def[18])
 cont_def = get_settings.get_controls_from_file()
 SHIFT_UP_KEY = cont_def[0]
 SHIFT_DOWN_KEY = cont_def[1]
@@ -134,6 +135,7 @@ own_fuel_was = 0
 game_time = 0
 own_range = 0
 
+
 # button 100-110 = park distance control
 # button 10-15 = HUD
 # button 16 = notifications
@@ -153,6 +155,7 @@ own_range = 0
 # button 71-75 = more settings
 # button 76-80 = fuel stuff
 # button 81-85 = ACC
+# button 86-90 = Menu
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -165,7 +168,7 @@ previous_steering2 = 0
 previous_steering3 = 0
 packets = 0
 steering = 0
-
+own_speed_mph = 0
 
 def window():
     global root
@@ -230,7 +233,7 @@ def outgauge_packet(outgauge, packet):
     global own_handbrake, own_battery_light, vehicle_model, right_indicator_timer, left_indicator_timer, brake_light
     global vehicle_model_change, own_warn_multi, measuring, measure_param, get_brake_dist, measuring_fast, measuring_very_fast
     global warn_multi_arr, engine_type, active_lane, previous_steering, car_in_control, packets, previous_steering2, previous_steering3
-    global steering, indicatorSr, indicatorSl, game_time, own_fuel, rectangles_object
+    global steering, indicatorSr, indicatorSl, game_time, own_fuel, rectangles_object, own_speed_mph
 
     if game:
         game_time = packet.Time
@@ -319,7 +322,7 @@ def outgauge_packet(outgauge, packet):
         accelerator_pressure = packet.Throttle
         own_rpm = packet.RPM
         own_speed = packet.Speed * 3.6
-
+        own_speed_mph = packet.Speed * 2.23
         if get_brake_dist and brake_pressure > 0.999 and 140 < own_speed_mci < 150 and not measuring and -120 < own_steering < 120:
             measuring = True
             measuring_very_fast = True
@@ -1648,6 +1651,7 @@ def head_up_display():
     global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
     global own_max_gears, own_max_rpm, own_fuel_capa, own_fuel_start, own_fuel_start_capa, dist_travelled
     if vehicle_model_change:
+        print(vehicle_model)
         dist_travelled = 0
         own_fuel_start = time
         own_fuel_start_capa = own_fuel
@@ -1661,17 +1665,30 @@ def head_up_display():
 
     if collision_warning_intensity == 0:
         if acc_active and acc_cars_in_front:
-            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f KPH' % own_speed)
-            send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
+            if settings.unit == "imperial":
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f MPH' % own_speed_mph)
+                acc_set_speed_mph = acc_set_speed * 0.621
+                send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed_mph)
+            else:
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^3%.1f KPH' % own_speed)
+                send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
             send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
             send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
         elif acc_active:
-            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f KPH' % own_speed)
-            send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
+            if settings.unit == "imperial":
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f MPH' % own_speed_mph)
+                acc_set_speed_mph = acc_set_speed * 0.621
+                send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed_mph)
+            else:
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^2%.1f KPH' % own_speed)
+                send_button(81, pyinsim.ISB_DARK, 122, 86, 4, 5, '^2%.0f' % acc_set_speed)
             send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 80, 3, 5, '^7+')
             send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 122, 83, 3, 5, '^7-')
         else:
-            send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^7%.1f KPH' % own_speed)
+            if settings.unit == "imperial":
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^7%.1f MPH' % own_speed_mph)
+            else:
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 119, 90, 13, 8, '^7%.1f KPH' % own_speed)
         if own_rpm < redline:
             send_button(11, pyinsim.ISB_DARK, 119, 103, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
         else:
@@ -1733,7 +1750,7 @@ def notification(notification_text, duration_in_sec):
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
     if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 81:
+        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 81 or 86 <= click_id <= 90:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1863,6 +1880,8 @@ def open_menu():
         color = [pyinsim.ISB_LIGHT, menu_top + 30, 0, 20, 5, "^0Lane Assist".format(settings.lane_assist)]
     send_button(19, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 0, 20, 5,
                 "^7Menu")
+    send_button(86, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 20, 15, 5,
+                "{}".format(settings.unit))
     send_button(20, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top, 0, 20, 5,
                 "{}Head-Up Display".format(settings.head_up_display))
     send_button(21, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 0, 20, 5,
@@ -1894,6 +1913,7 @@ def open_menu():
                 "{}".format(settings.lane_dep_intensity))
     send_button(71, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 0, 20, 15, 5,
                 "{}HUD-Images".format(settings.image_hud))
+
 
     if own_control_mode == 2:
         if vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88':
@@ -1940,6 +1960,7 @@ def close_menu():
     del_button(71)
     del_button(72)
     del_button(73)
+    del_button(86)
     send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
     get_settings.write_settings(settings)
 
@@ -1964,6 +1985,13 @@ def on_click(insim, btc):
     global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed
 
     if btc.ClickID == 30:
+        open_menu()
+    if btc.ClickID == 86:
+        if settings.unit == "metric":
+            settings.unit = "imperial"
+        else:
+            settings.unit = "metric"
+
         open_menu()
     elif btc.ClickID == 82:
         acc_set_speed = acc_set_speed + 5 - (acc_set_speed % 5)

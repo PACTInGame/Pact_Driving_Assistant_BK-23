@@ -11,10 +11,11 @@ on <-- Lane assist
 on <-- Cop aid system
 on <-- Automatic Emergency Braking
 early <-- Collision Warning Distance (early, medium, late)
-on <-- Automatic Gearbox (when sequential Gearbox is set in LFS)
+off <-- Automatic Gearbox (when sequential Gearbox is set in LFS)
 reduced <-- Lane departure warning intensity (early, normal, reduced)
 off <-- Head-up display with images
 off <-- stability control
 1920x1080 <-- Monitor resolution
-5 <-- warning sound (change in menu, when program is active)
-off <-- Trip-computer mode
+1 <-- warning sound (change in menu, when program is active)
+range <-- Trip-computer mode
+metric <-- unit
