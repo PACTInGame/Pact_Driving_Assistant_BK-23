@@ -91,119 +91,84 @@ def calculate_angle(x1, x2, y1, y2, own_heading):
 # Index 178 Short Slab Wall
 
 def get_size_of_object(index):
-    if 20 <= index <= 30:
-        length = 0.8
-        width = 0.8
-    elif 49 <= index <= 51 or 53 <= index <= 55:
-        length = 0.8
-        width = 0.8
-    elif index == 96:
-        length = 3.7
-        width = 0.4
-    elif index == 97:
-        length = 10.2
-        width = 0.4
-    elif index == 98:
-        length = 16.6
-        width = 0.4
-    elif index == 104:
-        length = 8.5
-        width = 0.6
-    elif index == 105 or index == 106:
-        length = 1.5
-        width = 0.5
-    elif index == 112 or index == 113:
-        length = 1
-        width = 6
-    elif 136 <= index <= 139:
-        length = 0.5
-        width = 0.5
-    elif index == 144:
-        length = 0.9
-        width = 1.7
-    elif index == 148:
-        length = 0.6
-        width = 2.5
-    elif index == 149:
-        length = 0.7
-        width = 0.5
+    size_dict = {
+        96: (3.7, 0.4),
+        97: (10.2, 0.4),
+        98: (16.6, 0.4),
+        104: (8.5, 0.6),
+        105: (1.5, 0.5),
+        106: (1.5, 0.5),
+        112: (1, 6),
+        113: (1, 6),
+        144: (0.9, 1.7),
+        148: (0.6, 2.5),
+        149: (0.7, 0.5),
+    }
+    if 20 <= index <= 30 or 49 <= index <= 51 or 53 <= index <= 55 or 136 <= index <= 139:
+        return 0.8, 0.8
+    elif index in size_dict:
+        return size_dict[index]
     else:
-        length = 0
-        width = 0
-    return length, width
+        return 0, 0
 
 
 def create_rectangles_for_objects(objects, own_x, own_y, own_heading):
     rectangles = []
 
     for obj in objects:
-        angle_of_car = (obj.Heading) * 1.412 + 90
-        if angle_of_car < 0:
-            angle_of_car = 360 + angle_of_car
-        if angle_of_car > 360:
-            angle_of_car = angle_of_car - 360
+        angle_of_car = (obj.Heading * 1.412 + 90) % 360
         length, width = get_size_of_object(obj.Index)
-        if length != 0:
-            if angle_of_car < 0:
-                angle_of_car *= -1
-            a1 = math.atan((width / 2) / (length / 2)) * 180 / math.pi
-            ang1 = angle_of_car + a1
-            ang2 = angle_of_car + (180 - a1)
-            ang3 = angle_of_car + (180 + a1)
-            ang4 = angle_of_car + (360 - a1)
-            diagonal = (length / 2) ** 2 + (width / 2) ** 2
-            diagonal = math.sqrt(diagonal)
-            objx = obj.X * 4096
-            objy = obj.Y * 4096
-            (x1, y1) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang1)  # front right
-            (x2, y2) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang2)  # rear right
-            (x3, y3) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang3)  # rear left
-            (x4, y4) = calc_polygon_points(objx, objy, (diagonal + 0.1) * 65536, ang4)  # front left
-            rectangles.append(([objx, objy], Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
+        if length == 0:
+            continue
+
+        a1 = math.degrees(math.atan(width / length))
+        angle_offsets = [a1, 180 - a1, 180 + a1, 360 - a1]
+        diagonal = math.hypot(length / 2, width / 2) * 65536
+        objx, objy = obj.X * 4096, obj.Y * 4096
+
+        corners = [calc_polygon_points(objx, objy, diagonal + 0.1, angle_of_car + offset) for offset in angle_offsets]
+        rectangles.append(([objx, objy], Polygon(corners)))
 
     return rectangles
 
 
 def create_rectangles_for_blindspot_warning(cars):
     rectangles = []
+    factor = 2.3 * 65536
+    heading_offset = 16384
+    heading_divisor = 182.05
+    angle_offsets = [22, 158, 202, 338]
 
     for car in cars:
+        x, y, heading = car[0].x, car[0].y, car[0].heading
+        angle_of_car = abs((heading - heading_offset) / heading_divisor)
+        polygon_points = [calc_polygon_points(x, y, factor, angle_of_car + offset) for offset in angle_offsets]
+        rectangles.append((car[0].speed, car[0].distance, Polygon(polygon_points), heading))
 
-        angle_of_car = (car[0].heading - 16384) / 182.05
-        if angle_of_car < 0:
-            angle_of_car *= -1
-        ang1 = angle_of_car + 22
-        ang2 = angle_of_car + 158
-        ang3 = angle_of_car + 202
-        ang4 = angle_of_car + 338
-        (x1, y1) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang1)  # front right
-        (x2, y2) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang2)  # rear right
-        (x3, y3) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang3)  # rear left
-        (x4, y4) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang4)  # front left
-
-        rectangles.append(
-            (car[0].speed, car[0].distance, Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)]), car[0].heading))
     return rectangles
 
 
 def create_rectangles_for_collision_warning(cars):
     rectangles = []
+    conversion_factor = 65536
+    offset_angle = 16384
+    angle_divisor = 182.05
+    distance = 2.3 * conversion_factor
+
+    angles = [22, 158, 202, 338]
 
     for car in cars:
+        car_heading = car[0].heading
+        angle_of_car = abs((car_heading - offset_angle) / angle_divisor)
 
-        angle_of_car = (car[0].heading - 16384) / 182.05
-        if angle_of_car < 0:
-            angle_of_car *= -1
-        ang1 = angle_of_car + 22
-        ang2 = angle_of_car + 158
-        ang3 = angle_of_car + 202
-        ang4 = angle_of_car + 338
-        (x1, y1) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang1)  # front right
-        (x2, y2) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang2)  # rear right
-        (x3, y3) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang3)  # rear left
-        (x4, y4) = calc_polygon_points(car[0].x, car[0].y, 2.3 * 65536, ang4)  # front left
+        car_x, car_y = car[0].x, car[0].y
+        polygon_points = [
+            calc_polygon_points(car_x, car_y, distance, angle_of_car + angle)
+            for angle in angles
+        ]
 
-        rectangles.append((car, Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])))
+        rectangles.append((car, Polygon(polygon_points)))
+
     return rectangles
 
 
@@ -214,6 +179,7 @@ def get_shift_buttons():
         return "Error detecting Keyboard inputs"
 
 
+# TODO This section still needs improvement
 def load_yield_polygons(track):
     list_of_polygons = []
     if track == b"AS":
@@ -322,203 +288,123 @@ def start_exe():
     subprocess.run(["start", "Pact_Driving_Assist.exe"], shell=True)
 
 
+HEADING_MAX = 65536
+HEADING_THRESHOLD = 5000
+ANGLE_CORRECTION = 16384
+ANGLE_RATIO = 182.05
+FRONT_DISTANCE = 85 * 65536
+REAR_DISTANCE = 2.0 * 65536
+
+
 def get_cars_in_front(own_heading, own_x, own_y, cars):
-    angle_of_car = (own_heading + 16384) / 182.05
-    if angle_of_car < 0:
-        angle_of_car *= -1
-    ang1 = angle_of_car + 1
-    ang2 = angle_of_car + 340
-    ang3 = angle_of_car + 20
-    ang4 = angle_of_car + 359
-    (x1, y1) = calc_polygon_points(own_x, own_y, 85 * 65536, ang1)  # front left
-    (x2, y2) = calc_polygon_points(own_x, own_y, 2.0 * 65536, ang2)  # rear left
-    (x3, y3) = calc_polygon_points(own_x, own_y, 2.0 * 65536, ang3)  # rear right
-    (x4, y4) = calc_polygon_points(own_x, own_y, 85 * 65536, ang4)  # front right
+    angle_of_car = (own_heading + ANGLE_CORRECTION) / ANGLE_RATIO
+
+    front_left = angle_of_car + 1
+    rear_left = angle_of_car + 340
+    rear_right = angle_of_car + 20
+    front_right = angle_of_car + 359
+
+    (x1, y1) = calc_polygon_points(own_x, own_y, FRONT_DISTANCE, front_left)
+    (x2, y2) = calc_polygon_points(own_x, own_y, REAR_DISTANCE, rear_left)
+    (x3, y3) = calc_polygon_points(own_x, own_y, REAR_DISTANCE, rear_right)
+    (x4, y4) = calc_polygon_points(own_x, own_y, FRONT_DISTANCE, front_right)
 
     own_rectangle = Polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)])
     rectangles_others = create_rectangles_for_collision_warning(cars)
-    car_in_front = []
     cars_in_front = []
-    for i, rectangle in enumerate(rectangles_others):
-        if polygon_intersect(rectangle[1], own_rectangle):
-            car_in_front.append(rectangle[0])
 
-    for car in car_in_front:
+    for car, rectangle in rectangles_others:
+        if polygon_intersect(rectangle, own_rectangle):
+            heading_car_big = (car[0].heading + HEADING_THRESHOLD) % HEADING_MAX
+            heading_car_small = (car[0].heading - HEADING_THRESHOLD) % HEADING_MAX
 
-        ok = False
-        edge = False
-        if car[0].heading + 5000 > 65536:
-            heading_car_two_big = car[0].heading - 65536 + 5000
-            edge = True
-        else:
-            heading_car_two_big = car[0].heading + 5000
+            if heading_car_small <= own_heading <= heading_car_big or heading_car_big < heading_car_small <= own_heading or own_heading <= heading_car_big < heading_car_small:
+                cars_in_front.append(car)
 
-        if car[0].heading - 5000 < 0:
-            heading_car_two_small = car[0].heading + 65536 - 5000
-            edge = True
-        else:
-            heading_car_two_small = car[0].heading - 5000
-
-        if edge:
-            if own_heading > heading_car_two_small or own_heading < heading_car_two_big:
-                ok = True
-        else:
-            if heading_car_two_small < own_heading < heading_car_two_big:
-                ok = True
-        if ok:
-            cars_in_front.append(car)
     return cars_in_front
 
 
 def get_vehicle_length(own_car):
-    length = 0
-    brake = 1.0
-    if own_car == b'XFG':
-        brake = 1.1
-    elif own_car == b'LX4':
-        brake = 0.9
-    elif own_car == b'LX6':
-        brake = 0.9
-    elif own_car == b'FXO':
-        brake = 0.9
-    elif own_car == b'UFR':
-        brake = 0.85
-    elif own_car == b'XFR':
-        brake = 0.85
-    elif own_car == b'FXR':
-        brake = 0.8
-    elif own_car == b'XRR':
-        brake = 0.8
-    elif own_car == b'FZR':
-        brake = 0.8
-    elif own_car == b'BF1':
-        brake = 0.7
-    elif own_car == b'\x98a\x10':  # CAROBUS
-        length -= 5
-        brake = 1.9
-    elif own_car == b'z\xf8p':  # LKW
-        length += 3
-        brake = 1.3
-    elif own_car == b'\xb67G':  # ONIBUS
-        length += 3
-        brake = 1.4
-    elif own_car == b'\xa4\xc2\xf3':  # Line Runner
-        length += 3
-        brake = 1.3
-    elif own_car == b'\xcf\xee\x83':  # BUS 2
-        length += 3
-        brake = 1.2
-    elif own_car == b'\xbc\xe5B':  # Reisebus
-        length += 4
-        brake = 1.4
-    elif own_car == b'x\x0b!':  # Lory GP5
-        brake = 1.1
-    elif own_car == b'>\x8c\x88':  # Bumer 7
-        brake = 1.1
-    elif own_car == b'=v{':  # CCF012
-        brake = 1.1
-    elif own_car == b'\xac\xb1\xb0':  # FAIK TOPO
-        brake = 0.95
-    elif own_car == b'K\xd2c':  # UF Pickup Truck
-        brake = 1
-        length += 1
-    elif own_car == b'*\x8f-':  # N.400s
-        brake = 0.9
-        length += 1
+    vehicle_data = {
+        b'XFG': (0, 1.1),
+        b'LX4': (0, 0.9),
+        b'LX6': (0, 0.9),
+        b'FXO': (0, 0.9),
+        b'UFR': (0, 0.85),
+        b'XFR': (0, 0.85),
+        b'FXR': (0, 0.8),
+        b'XRR': (0, 0.8),
+        b'FZR': (0, 0.8),
+        b'BF1': (0, 0.7),
+        b'\x98a\x10': (-5, 1.9),  # CAROBUS
+        b'z\xf8p': (3, 1.3),  # LKW
+        b'\xb67G': (3, 1.4),  # ONIBUS
+        b'\xa4\xc2\xf3': (3, 1.3),  # Line Runner
+        b'\xcf\xee\x83': (3, 1.2),  # BUS 2
+        b'\xbc\xe5B': (4, 1.4),  # Reisebus
+        b'x\x0b!': (0, 1.1),  # Lory GP5
+        b'>\x8c\x88': (0, 1.1),  # Bumer 7
+        b'=v{': (0, 1.1),  # CCF012
+        b'\xac\xb1\xb0': (0, 0.95),  # FAIK TOPO
+        b'K\xd2c': (1, 1),  # UF Pickup Truck
+        b'*\x8f-': (1, 0.9),  # N.400s
+    }
+
+    length_adjustment, brake = vehicle_data.get(own_car, (0, 1.0))
+    length = 0 + length_adjustment
+    print(length, brake)
     return length, brake
 
 
 def get_vehicle_redline(c):
-    if c == b"UF1":
-        r = 6000
-    elif c == b"XFG":
-        r = 7000
-    elif c == b"XRG":
-        r = 6000
-    elif c == b"LX4":
-        r = 8000
-    elif c == b"LX6":
-        r = 8000
-    elif c == b"RB4":
-        r = 6500
-    elif c == b"FXO":
-        r = 6500
-    elif c == b"XRT":
-        r = 6500
-    elif c == b"RAC":
-        r = 6000
-    elif c == b"FZ5":
-        r = 7000
-    elif c == b'K\xd2c':  # UF Pick Up
-        r = 6000
-    elif c == b'\xb4\xdf\xa6':  # Swirl
-        r = 6000
-    elif c == b'\xedmj':  # TAZ09
-        r = 5100
-    elif c == b'\x05\xad\xcf':  # Wessex
-        r = 9000
-    elif c == b'\x81X\x95':  # SLX130
-        r = 3200
-    elif c == b'\x98a\x10':  # CAROBUS
-        r = 1900
-    elif c == b'z\xf8p':  # LKW
-        r = 3000
-    elif c == b'\xb67G':  # ONIBUS
-        r = 1900
-    elif c == b'\xa4\xc2\xf3':  # Line Runner
-        r = 3000
-    elif c == b'\x0c\xb9\xfc':  # Bayern 540
-        r = 5000
-    elif c == b'o\xa1%':  # EDM 540
-        r = 6000
-    elif c == b'\xf6\x121':  # lemon adieu
-        r = 3800
-    elif c == b']7\xd8':  # Panther
-        r = 6000
-    elif c == b'\x13\x80^':  # Pinewood
-        r = 6000
-    elif c == b'\xbc\xe5B':  # Reisebus
-        r = 3000
-    elif c == b'*\x8f-':  # N.440S
-        r = 6000
-    elif c == b'>\x8c\x88':  # Bumer 7
-        r = 5000
-    elif c == b'\xbe\xa1e':
-        r = 13000
-    elif c == b'?!?':  # TSV8
-        r = 2000
-    elif c == b'\xcf\xee\x83':  # TSV8
-        r = 3000
-    else:
-        r = 7000
-    return r
+    redline_dict = {
+        b"UF1": 6000,
+        b"XFG": 7000,
+        b"XRG": 6000,
+        b"LX4": 8000,
+        b"LX6": 8000,
+        b"RB4": 6500,
+        b"FXO": 6500,
+        b"XRT": 6500,
+        b"RAC": 6000,
+        b"FZ5": 7000,
+        b'K\xd2c': 6000,  # UF Pick Up
+        b'\xb4\xdf\xa6': 6000,  # Swirl
+        b'\xedmj': 5100,  # TAZ09
+        b'\x05\xad\xcf': 9000,  # Wessex
+        b'\x81X\x95': 3200,  # SLX130
+        b'\x98a\x10': 1900,  # CAROBUS
+        b'z\xf8p': 3000,  # LKW
+        b'\xb67G': 1900,  # ONIBUS
+        b'\xa4\xc2\xf3': 3000,  # Line Runner
+        b'\x0c\xb9\xfc': 5000,  # Bayern 540
+        b'o\xa1%': 6000,  # EDM 540
+        b'\xf6\x121': 3800,  # lemon adieu
+        b']7\xd8': 6000,  # Panther
+        b'\x13\x80^': 6000,  # Pinewood
+        b'\xbc\xe5B': 3000,  # Reisebus
+        b'*\x8f-': 6000,  # N.440S
+        b'>\x8c\x88': 5000,  # Bumer 7
+        b'\xbe\xa1e': 13000,
+        b'?!?': 2000,  # TSV8
+        b'\xcf\xee\x83': 3000,  # TSV8
+    }
+
+    return redline_dict.get(c, 7000)
 
 
 def get_max_gears(vehicle_model):
-    mg = -1
-    mr = -1
-    if vehicle_model == b"FZ5":
-        mg = 6
-        mr = 7800
-    elif vehicle_model == b'\x98a\x10':  # CAROBUS
-        mg = 5
-        mr = 2100
-    elif vehicle_model == b'\xb6i\xbd':  # Luxury Sedan
-        mg = 7
-        mr = 6300
-    elif vehicle_model == b'K\xd2c':  # UF Pickup Truck
-        mg = 6
-        mr = 6700
-    elif vehicle_model == b'\xac\xb1\xb0':  # Faik Topo
-        mg = 6
-        mr = 5150
-    elif vehicle_model == b'*\x8f-':  # N.440S
-        mg = 6
-        mr = 6700
-    elif vehicle_model == b'>\x8c\x88':  # Bumer 7
-        mg = 5
-        mr = 5600
-    return mg, mr
+    vehicle_data = {
+        b"FZ5": (6, 7800),
+        b'\x98a\x10': (5, 2100),  # Carobus
+        b'\xb6i\xbd': (7, 6300),  # Luxury Sedan
+        b'K\xd2c': (6, 6700),  # UF Pickup Truck
+        b'\xac\xb1\xb0': (6, 5150),  # Faik Topo
+        b'*\x8f-': (6, 6700),
+        b'>\x8c\x88': (5, 5600),
+    }
+
+    return vehicle_data.get(vehicle_model, (-1, -1))
 
 
 def playsound(sound):
@@ -541,104 +427,71 @@ def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
         dist = 0.1
     if own_capa == -1:
         return 99, 99, 0
-    if speed > 1:
-        mom = ((last_fuel - now_fuel) * 5 * own_capa) / (speed / 3.6) * 1000 * 100
-    else:
-        mom = 99
-    if dist > 1:
-        avg = ((start_capa - now_fuel) * own_capa) / ((dist / 1000) / 100)
 
-    else:
-        avg = 99
-    if avg == 0:
-        avg = 5
-    if dist > 300:
-        own_range = (now_fuel * own_capa / avg) * 100
-    else:
-        own_range = -1
+    speed_kph = speed / 3.6
+    dist_km = dist / 1000
 
-    if avg > 99:
-        avg = 99
-    if mom > 99:
-        mom = 99
+    mom = 99 if speed_kph <= 1 else ((last_fuel - now_fuel) * 5 * own_capa) / speed_kph * 100_000
+    avg = 99 if dist_km <= 1 else ((start_capa - now_fuel) * own_capa) / dist_km * 100
+
+    avg = max(avg, 5)
+    own_range = -1 if dist <= 300 else (now_fuel * own_capa / avg) * 100
+
+    avg = min(avg, 99)
+    mom = min(mom, 99)
+
     return avg, mom, own_range
 
 
 def get_fuel_capa(car):
-    if car == b'UF1':
-        capa = 35
-    elif car == b'XFG':
-        capa = 45
-    elif car == b'XRG':
-        capa = 65
-    elif car == b'LX4':
-        capa = 40
-    elif car == b'LX6':
-        capa = 40
-    elif car == b'RB4' or car == b'FXO' or car == b'XRT':
-        capa = 75
-    elif car == b'RAC':
-        capa = 42
-    elif car == b'FZ5' or car == b'_\x1d*' or car == b'\xeb\xce9' or car == b'4\x96\xde': # FZ5 Lightbar, Safetycar, FZ5 Turbo
-        capa = 90
-    elif car == b'UFR':
-        capa = 60
-    elif car == b'XFR':
-        capa = 70
-    elif car == b'FXR' or car == b'XRR' or car == b'FZR':
-        capa = 100
-    elif car == b'\x98a\x10':  # CAROBUS
-        capa = 240
-    elif car == b'\xb6i\xbd' or car == b'\xa5\x90\xc6':  # Luxury Sedan, SV
-        capa = 66
-    elif car == b'K\xd2c':  # UF Pickup Truck
-        capa = 137
-    elif car == b'\xac\xb1\xb0':  # Faik Topo
-        capa = 50
-    elif car == b'*\x8f-':  # N.440S
-        capa = 71
-    elif car == b'>\x8c\x88':  # Bumer 7
-        capa = 95
-    elif car == b'\xbe\xa1e':  # XFG E
-        capa = 48
-    elif car == b'\n\xe8\x9e' or car == b'\xaah\x1a': # FEND BR
-        capa = 78.7
-    elif car == b'\x85\xc4\xa4': # Chorus Attendanze
-        capa = 30
-    elif car == b'\xfa\xae\xe2': # ETK - K series
-        capa = 75
-    elif car == b'\xb7\x83K': # Cammera 730 T
-        capa = 136.7
-    elif car == b'\xb7\x83K': # UF Electric
-        capa = 38
-    elif car == b'6=j': # Tiny Cupe
-        capa = 50
-    elif car == b'\xce\xd9v' or car == b'\x13>\xcb': # GT V-34, God foot
-        capa = 65
-    elif car == b'H1`' or car == b'J\x08\xc8': # Bimmy M46, BZG SUV
-        capa = 75
-    elif car == b'\xfa5\xe7': # XFG YARIS
-        capa = 50
-    elif car == b'Z\x1f\x80': # MUN Firetruck
-        capa = 300
-    elif car == b'\xcd\x87U': # Adda Ar-Eight
-        capa = 73
-    elif car == b'\xd6\x11n': # Frerri F90
-        capa = 70
-    elif car == b'R\xea/': # XR E-GT
-        capa = 53
-    elif car == b'?!?': # TSV8
-        capa = 381.9
-    elif car == b'\xcf\xee\x83': # RTS 6-71
-        capa = 200
-    elif car == b'z\xf8p': # LCT 300
-        capa = 100
-    elif car == b'\x89)\xfa': # E-Challenger
-        capa = 57
-    elif car == b'\xdc\xb8\xb7': # Formula XR-E
-        capa = 40
-    elif car == b'BF1':
-        capa = 95
-    else:
-        capa = -1
-    return capa
+    fuel_capacity_map = {
+        b'UF1': 35,
+        b'XFG': 45,
+        b'XRG': 65,
+        b'LX4': 40,
+        b'LX6': 40,
+        b'RB4': 75,
+        b'FXO': 75,
+        b'XRT': 75,
+        b'RAC': 42,
+        b'FZ5': 90,
+        b'_\x1d*': 90,
+        b'\xeb\xce9': 90,
+        b'4\x96\xde': 90,  # FZ5 Lightbar, Safetycar, FZ5 Turbo
+        b'UFR': 60,
+        b'XFR': 70,
+        b'FXR': 100,
+        b'XRR': 100,
+        b'FZR': 100,
+        b'\x98a\x10': 240,  # CAROBUS
+        b'\xb6i\xbd': 66,
+        b'\xa5\x90\xc6': 66,  # Luxury Sedan, SV
+        b'K\xd2c': 137,  # UF Pickup Truck
+        b'\xac\xb1\xb0': 50,  # Faik Topo
+        b'*\x8f-': 71,  # N.440S
+        b'>\x8c\x88': 95,  # Bumer 7
+        b'\xbe\xa1e': 48,  # XFG E
+        b'\n\xe8\x9e': 78.7,
+        b'\xaah\x1a': 78.7,  # FEND BR
+        b'\x85\xc4\xa4': 30,  # Chorus Attendanze
+        b'\xfa\xae\xe2': 75,  # ETK - K series
+        b'\xb7\x83K': 38,  # UF Electric (Note: Duplicate key '\xb7\x83K' removed)
+        b'6=j': 50,  # Tiny Cupe
+        b'\xce\xd9v': 65,
+        b'\x13>\xcb': 65,  # GT V-34, God foot
+        b'H1`': 75,
+        b'J\x08\xc8': 75,  # Bimmy M46, BZG SUV
+        b'\xfa5\xe7': 50,  # XFG YARIS
+        b'Z\x1f\x80': 300,  # MUN Firetruck
+        b'\xcd\x87U': 73,  # Adda Ar-Eight
+        b'\xd6\x11n': 70,  # Frerri F90
+        b'R\xea/': 53,  # XR E-GT
+        b'?!?': 381.9,  # TSV8
+        b'\xcf\xee\x83': 200,  # RTS 6-71
+        b'z\xf8p': 100,  # LCT 300
+        b'\x89)\xfa': 57,  # E-Challenger
+        b'\xdc\xb8\xb7': 40,  # Formula XR-E
+        b'BF1': 95
+    }
+
+    return fuel_capacity_map.get(car, -1)

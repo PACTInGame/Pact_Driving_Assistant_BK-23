@@ -3,7 +3,7 @@ import time
 import winsound
 from threading import Thread
 
-
+#TODO improve this
 def stop_dist_WE(route, own_x, own_y):
     stops = []
     return_array = []
