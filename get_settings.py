@@ -1,6 +1,6 @@
 def get_settings_from_file():
     change_set = ["^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "^2", "medium", "^2", "normal", "^2", "^1",
-                  "1920x1080", "0", "avg", "metric"]
+                  "1920x1080", "0", "avg", "metric", 0, 0]
     try:
         with open("settings.txt") as fp:
             for i, line in enumerate(fp):
@@ -45,6 +45,14 @@ def get_settings_from_file():
                 if i == 20:
                     line = line.split()
                     change_set[i - 2] = str(line[0])
+
+                if i == 21:
+                    line = line.split()
+                    change_set[i - 2] = int(line[0])
+
+                if i == 22:
+                    line = line.split()
+                    change_set[i - 2] = int(line[0])
         print("Settings loaded successfully")
         return change_set
 
@@ -115,7 +123,9 @@ def write_settings(settings):
                   "{} <-- Monitor resolution\n" \
                   "{} <-- warning sound (change in menu, when program is active)\n" \
                   "{} <-- Trip-computer mode\n"\
-                  "{} <-- unit".format(settings.head_up_display,
+                  "{} <-- unit\n" \
+                  "{} <-- HUD height offset\n"\
+                  "{} <-- HUD width offset".format(settings.head_up_display,
                                                      settings.forward_collision_warning,
                                                      settings.blind_spot_warning,
                                                      settings.cross_traffic_warning,
@@ -133,7 +143,9 @@ def write_settings(settings):
                                                      settings.resolution,
                                                      settings.collision_warning_sound,
                                                      settings.bc,
-                                                     settings.unit)
+                                                     settings.unit,
+                                                     settings.offseth,
+                                                     settings.offsetw)
 
     file_string = file_string.replace("^2", "on")
     file_string = file_string.replace("^1", "off")
