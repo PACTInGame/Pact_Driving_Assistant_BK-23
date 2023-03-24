@@ -1777,69 +1777,32 @@ yield_polygons = []
 def insim_state(insim, sta):
     global track, game, text_entry, start_outgauge_again, polygons_r, polygons_l, yield_polygons
 
-    if b"WE" in sta.Track:
-        if track != b"WE":
+    tracks = [b"WE", b"BL", b"AS", b"SO", b"FE", b"KY", b"AU", b"RO", b"LA"]
+
+    for track_code in tracks:
+        if track_code in sta.Track and track != track_code:
             polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
             polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"WE"
-    elif b"BL" in sta.Track:
-        if track != b"BL":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"BL"
-    elif b"AS" in sta.Track:
-        if track != b"AS":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"AS"
-    elif b"SO" in sta.Track:
-        if track != b"SO":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"SO"
-    elif b"FE" in sta.Track:
-        if track != b"FE":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"FE"
-    elif b"KY" in sta.Track:
-        if track != b"KY":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"KY"
-    elif b"AU" in sta.Track:
-        if track != b"AU":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"AU"
-    elif b"RO" in sta.Track:
-        if track != b"RO":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"RO"
-    elif b"LA" in sta.Track:
-        if track != b"LA":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"LA"
+            track = track_code
+            break
+
     yield_polygons = helpers.load_yield_polygons(track)
     flags = [int(i) for i in str("{0:b}".format(sta.Flags))]
-    if len(flags) >= 15:
 
-        if not game and flags[-1] == 1 and flags[-15] == 1:
+    if len(flags) >= 15:
+        game_active = flags[-1] == 1 and flags[-15] == 1
+
+        if not game and game_active:
             game_insim()
 
-        elif game and flags[-1] == 0 or flags[-15] == 0:
+        elif game and not game_active:
             menu_insim()
             start_outgauge_again = True
 
     elif game:
         menu_insim()
-    try:
-        if flags[-16] == 1:
-            text_entry = True
-    except:
-        text_entry = False
+
+    text_entry = len(flags) >= 16 and flags[-16] == 1
 
 
 def menu_insim():
