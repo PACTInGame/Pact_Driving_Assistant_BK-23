@@ -179,7 +179,7 @@ def get_shift_buttons():
         return "Error detecting Keyboard inputs"
 
 
-# TODO This section still needs improvement
+# TODO This section still needs improvement, use dictionary
 def load_yield_polygons(track):
     list_of_polygons = []
     if track == b"AS":

@@ -1429,54 +1429,52 @@ turned_left = False
 def light_assist():
     global timer_brake_light, emergency_light, emergency_stopped, turned_left, turned_right, timer_turned_right
     global timer_turned_left
+
+    def send_msg(msg):
+        if not text_entry and not shift_pressed:
+            insim.send(pyinsim.ISP_MST, Msg=msg)
+
     if settings.light_assist == "^2":
-        if not own_light and not emergency_light and not siren and not strobe and not text_entry and not shift_pressed:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 3")
+        if not any((own_light, emergency_light, siren, strobe, text_entry, shift_pressed)):
+            send_msg(b"/press 3")
 
         if timer_brake_light == 0:
             timer_brake_light = 1
-            if brake_light > 0.6 and own_speed > 15 and (not siren and not strobe):
+            if brake_light > 0.6 and own_speed > 15 and not any((siren, strobe)):
                 emergency_light = True
-                if not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 3")
+                send_msg(b"/press 3")
             elif brake_light > 0.8 and own_speed < 15 and emergency_light:
                 emergency_light = False
                 emergency_stopped = True
-                if roleplay == "civil" and not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 9")
+                if roleplay == "civil":
+                    send_msg(b"/press 9")
             elif own_speed > 15 and not emergency_light and emergency_stopped:
-                if roleplay == "civil" and not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 0")
+                if roleplay == "civil":
+                    send_msg(b"/press 0")
                 emergency_stopped = False
             elif own_speed > 15 and emergency_light:
                 emergency_light = False
-        # steering - right + left
+
     if auto_indicators == "^2":
         if own_steering > 800:
             turned_left = True
 
-        if own_steering < - 800:
+        if own_steering < -800:
             turned_right = True
 
-        if turned_right and own_steering < - 80:
+        if turned_right and own_steering < -80:
             timer_turned_right = 6
 
         if turned_left and own_steering > 80:
             timer_turned_left = 6
 
-        if turned_left and indicators[
-            0] == 1 and own_steering < 80 and not text_entry and not shift_pressed and own_speed > 10:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 0")
+        conditions = (not text_entry, not shift_pressed, own_speed > 10)
+        if all(conditions):
+            if turned_left and indicators[0] == 1 and own_steering < 80:
+                send_msg(b"/press 0")
 
-        if turned_right and indicators[
-            1] == 1 and own_steering > - 80 and not text_entry and not shift_pressed and own_speed > 10:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 0")
+            if turned_right and indicators[1] == 1 and own_steering > -80:
+                send_msg(b"/press 0")
 
         if timer_turned_right == 0:
             turned_right = False
