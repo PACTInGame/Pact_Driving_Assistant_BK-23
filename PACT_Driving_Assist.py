@@ -1435,54 +1435,52 @@ turned_left = False
 def light_assist():
     global timer_brake_light, emergency_light, emergency_stopped, turned_left, turned_right, timer_turned_right
     global timer_turned_left
+
+    def send_msg(msg):
+        if not text_entry and not shift_pressed:
+            insim.send(pyinsim.ISP_MST, Msg=msg)
+
     if settings.light_assist == "^2":
-        if not own_light and not emergency_light and not siren and not strobe and not text_entry and not shift_pressed:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 3")
+        if not any((own_light, emergency_light, siren, strobe, text_entry, shift_pressed)):
+            send_msg(b"/press 3")
 
         if timer_brake_light == 0:
             timer_brake_light = 1
-            if brake_light > 0.6 and own_speed > 15 and (not siren and not strobe):
+            if brake_light > 0.6 and own_speed > 15 and not any((siren, strobe)):
                 emergency_light = True
-                if not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 3")
+                send_msg(b"/press 3")
             elif brake_light > 0.8 and own_speed < 15 and emergency_light:
                 emergency_light = False
                 emergency_stopped = True
-                if roleplay == "civil" and not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 9")
+                if roleplay == "civil":
+                    send_msg(b"/press 9")
             elif own_speed > 15 and not emergency_light and emergency_stopped:
-                if roleplay == "civil" and not text_entry and not shift_pressed:
-                    insim.send(pyinsim.ISP_MST,
-                               Msg=b"/press 0")
+                if roleplay == "civil":
+                    send_msg(b"/press 0")
                 emergency_stopped = False
             elif own_speed > 15 and emergency_light:
                 emergency_light = False
-        # steering - right + left
+
     if auto_indicators == "^2":
         if own_steering > 800:
             turned_left = True
 
-        if own_steering < - 800:
+        if own_steering < -800:
             turned_right = True
 
-        if turned_right and own_steering < - 80:
+        if turned_right and own_steering < -80:
             timer_turned_right = 6
 
         if turned_left and own_steering > 80:
             timer_turned_left = 6
 
-        if turned_left and indicators[
-            0] == 1 and own_steering < 80 and not text_entry and not shift_pressed and own_speed > 10:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 0")
+        conditions = (not text_entry, not shift_pressed, own_speed > 10)
+        if all(conditions):
+            if turned_left and indicators[0] == 1 and own_steering < 80:
+                send_msg(b"/press 0")
 
-        if turned_right and indicators[
-            1] == 1 and own_steering > - 80 and not text_entry and not shift_pressed and own_speed > 10:
-            insim.send(pyinsim.ISP_MST,
-                       Msg=b"/press 0")
+            if turned_right and indicators[1] == 1 and own_steering > -80:
+                send_msg(b"/press 0")
 
         if timer_turned_right == 0:
             turned_right = False
@@ -1788,69 +1786,32 @@ yield_polygons = []
 def insim_state(insim, sta):
     global track, game, text_entry, start_outgauge_again, polygons_r, polygons_l, yield_polygons
 
-    if b"WE" in sta.Track:
-        if track != b"WE":
+    tracks = [b"WE", b"BL", b"AS", b"SO", b"FE", b"KY", b"AU", b"RO", b"LA"]
+
+    for track_code in tracks:
+        if track_code in sta.Track and track != track_code:
             polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
             polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"WE"
-    elif b"BL" in sta.Track:
-        if track != b"BL":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"BL"
-    elif b"AS" in sta.Track:
-        if track != b"AS":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"AS"
-    elif b"SO" in sta.Track:
-        if track != b"SO":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"SO"
-    elif b"FE" in sta.Track:
-        if track != b"FE":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"FE"
-    elif b"KY" in sta.Track:
-        if track != b"KY":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"KY"
-    elif b"AU" in sta.Track:
-        if track != b"AU":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"AU"
-    elif b"RO" in sta.Track:
-        if track != b"RO":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"RO"
-    elif b"LA" in sta.Track:
-        if track != b"LA":
-            polygons_r = Polygon([(0, 0), (0, 1), (1, 0)])
-            polygons_l = Polygon([(0, 0), (0, 1), (1, 0)])
-        track = b"LA"
+            track = track_code
+            break
+
     yield_polygons = helpers.load_yield_polygons(track)
     flags = [int(i) for i in str("{0:b}".format(sta.Flags))]
-    if len(flags) >= 15:
 
-        if not game and flags[-1] == 1 and flags[-15] == 1:
+    if len(flags) >= 15:
+        game_active = flags[-1] == 1 and flags[-15] == 1
+
+        if not game and game_active:
             game_insim()
 
-        elif game and flags[-1] == 0 or flags[-15] == 0:
+        elif game and not game_active:
             menu_insim()
             start_outgauge_again = True
 
     elif game:
         menu_insim()
-    try:
-        if flags[-16] == 1:
-            text_entry = True
-    except:
-        text_entry = False
+
+    text_entry = len(flags) >= 16 and flags[-16] == 1
 
 
 def menu_insim():
