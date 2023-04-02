@@ -2529,54 +2529,48 @@ def brake():
 
 
 def fuel_hud():
-
     r = own_range - 1
     r2 = round(r / 10) * 10
+
     if 1.9 < r < 2.0:
         notification("^1< 2km range!", 5)
-    if 9.9 < r < 10.0:
+    elif 9.9 < r < 10.0:
         notification("^3< 10km range!", 5)
-    if 49.9 < r < 50.0:
+    elif 49.9 < r < 50.0:
         notification("^7< 50km range!", 5)
-    if roleplay == "civil":
-        h = 113 + settings.offseth
-    else:
-        h = 109 + settings.offseth
 
+    h = 113 + settings.offseth if roleplay == "civil" else 109 + settings.offseth
     hudwidth = 90 + settings.offsetw
+
+    button_label = None
     if settings.bc == "moment":
-        if engine_type != "electric":
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.1f L/100km' % own_fuel_moment)
-        else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.1f kwh/100km' % own_fuel_moment)
-
+        button_label = '^7%.1f L/100km' % own_fuel_moment if engine_type != "electric" else '^7%.1f kwh/100km' % own_fuel_moment
     elif settings.bc == "average":
-        if engine_type != "electric":
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.1f L/100km' % own_fuel_avg)
-        else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.1f kwh/100km' % own_fuel_avg)
-
+        button_label = '^7%.1f L/100km' % own_fuel_avg if engine_type != "electric" else '^7%.1f kwh/100km' % own_fuel_avg
     elif settings.bc == "range":
-
         if r > 50:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.0i km' % r2)
+            button_label = '^7%.0i km' % r2
         elif r > 10:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7%.0f km' % r)
+            button_label = '^7%.0f km' % r
         elif r > 5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^3%.0f km' % r)
+            button_label = '^3%.0f km' % r
         elif r > 2:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^1%.1f km' % r)
+            button_label = '^1%.1f km' % r
         elif r > 1:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^1%.2f km' % r)
+            button_label = '^1%.2f km' % r
         elif r > 0.5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^1%.2f km' % r)
+            button_label = '^1%.2f km' % r
         elif 0 <= r <= 0.5:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^1--- km')
+            button_label = '^1--- km'
         else:
-            send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, '^7calculating')
-
+            button_label = '^7calculating'
     elif settings.bc == "off":
-        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h+6, hudwidth-3, 3, 3, 'BC')
+        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h + 6, hudwidth - 3, 3, 3, 'BC')
+
+
+
+    if button_label:
+        send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, button_label)
 
 
 rectangles_object = []

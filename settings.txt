@@ -17,7 +17,7 @@ off <-- Head-up display with images
 off <-- stability control
 1920x1080 <-- Monitor resolution
 1 <-- warning sound (change in menu, when program is active)
-off <-- Trip-computer mode
+range <-- Trip-computer mode
 metric <-- unit
 -1 <-- HUD height offset
 -3 <-- HUD width offset
