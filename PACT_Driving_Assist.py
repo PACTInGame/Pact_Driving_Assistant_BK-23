@@ -1245,6 +1245,10 @@ bus_announce_timer = 0
 bus_next_stop_timer = 0
 
 
+def decrement_timer(timer, decrement_value=1.0):
+    return max(timer - decrement_value, 0)
+
+
 def timers():
     global timer_pdc_sound, slow_timer, timer_collision_warning, timer_collision_warning_sound, notification_timer
     global send_timer, timer_brake_light, timer_turned_right, timer_turned_left, strobe_timer, engine_start_timer
@@ -1252,66 +1256,50 @@ def timers():
     global lane_btn_timer, right_indicator_timer, left_indicator_timer, bus_announce_timer, bus_next_stop_timer
     global message_handling_error_count
 
-    if message_handling_error_count > 0:
-        message_handling_error_count = message_handling_error_count - 0.01
+    message_handling_error_count = decrement_timer(message_handling_error_count, 0.01)
+
     if bus_next_stop_timer > 0 and own_speed > 2:
         if bus_next_stop_timer == 1:
             bus_announce_next_stop()
-        bus_next_stop_timer = bus_next_stop_timer - 1
+        bus_next_stop_timer = decrement_timer(bus_next_stop_timer)
 
-    if bus_announce_timer > 0 and own_speed > 2:
-        bus_announce_timer = bus_announce_timer - 1
-    if right_indicator_timer > 0:
-        right_indicator_timer = right_indicator_timer - 1
-    if left_indicator_timer > 0:
-        left_indicator_timer = left_indicator_timer - 1
-    if lane_btn_timer > 0:
-        lane_btn_timer = lane_btn_timer - 1
+    bus_announce_timer = decrement_timer(bus_announce_timer) if own_speed > 2 else bus_announce_timer
+    right_indicator_timer = decrement_timer(right_indicator_timer)
+    left_indicator_timer = decrement_timer(left_indicator_timer)
+    lane_btn_timer = decrement_timer(lane_btn_timer)
+
     if timer_update_npl == 0:
         timer_update_npl = 20
         insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_NPL)
-    if timer_update_npl > 0:
-        timer_update_npl = timer_update_npl - 1
-    if timer_pdc_sound > 0:
-        timer_pdc_sound = timer_pdc_sound - 1
-    if slow_timer > 0:
-        slow_timer = slow_timer - 1
-    if timer_collision_warning > 0:
-        timer_collision_warning = timer_collision_warning - 1
-    if timer_collision_warning_sound > 0:
-        timer_collision_warning_sound = timer_collision_warning_sound - 1
-    if notification_timer > 0:
-        notification_timer = notification_timer - 1
+    timer_update_npl = decrement_timer(timer_update_npl)
+
+    timer_pdc_sound = decrement_timer(timer_pdc_sound)
+    slow_timer = decrement_timer(slow_timer)
+    timer_collision_warning = decrement_timer(timer_collision_warning)
+    timer_collision_warning_sound = decrement_timer(timer_collision_warning_sound)
+
+    notification_timer = decrement_timer(notification_timer)
     if notification_timer == 1:
-        notification_timer = 0
+        notification_timer, notifications[0] = 0, ""
         del_button(16)
-        notifications[0] = ""
-    if notification_timer2 > 0:
-        notification_timer2 = notification_timer2 - 1
+
+    notification_timer2 = decrement_timer(notification_timer2)
     if notification_timer2 == 1:
-        notification_timer2 = 0
+        notification_timer2, notifications[1] = 0, ""
         del_button(41)
-        notifications[1] = ""
-    if notification_timer3 > 0:
-        notification_timer3 = notification_timer3 - 1
+
+    notification_timer3 = decrement_timer(notification_timer3)
     if notification_timer3 == 1:
-        notification_timer3 = 0
+        notification_timer3, notifications[2] = 0, ""
         del_button(42)
-        notifications[2] = ""
-    if send_timer > 0:
-        send_timer = 0
-    if timer_brake_light > 0:
-        timer_brake_light = timer_brake_light - 1
-    if timer_turned_left > 0:
-        timer_turned_left = timer_turned_left - 1
-    if timer_turned_right > 0:
-        timer_turned_right = timer_turned_right - 1
-    if strobe_timer > 0:
-        strobe_timer = strobe_timer - 1
-    if engine_start_timer > 0:
-        engine_start_timer = engine_start_timer - 1
-    if shift_timer > 0:
-        shift_timer = shift_timer - 1
+
+    send_timer = 0
+    timer_brake_light = decrement_timer(timer_brake_light)
+    timer_turned_left = decrement_timer(timer_turned_left)
+    timer_turned_right = decrement_timer(timer_turned_right)
+    strobe_timer = decrement_timer(strobe_timer)
+    engine_start_timer = decrement_timer(engine_start_timer)
+    shift_timer = decrement_timer(shift_timer)
     ema_timer = ema_timer + 1
     if ema_timer == 12 and settings.emergency_assist == "^2":
         play_emawarning_thread = Thread(target=helpers.emawarningsound)
@@ -1322,6 +1310,8 @@ def timers():
 
 
 park_assist_active = False
+
+#TODO PSC OFFSET BUTTON
 
 
 def send_pdcbtns(angles, distances):
