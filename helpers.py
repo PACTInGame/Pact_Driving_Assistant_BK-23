@@ -348,6 +348,7 @@ def get_vehicle_length(own_car):
         b'\xac\xb1\xb0': (0, 0.95),  # FAIK TOPO
         b'K\xd2c': (1, 1),  # UF Pickup Truck
         b'*\x8f-': (1, 0.9),  # N.400s
+        b'Gb\xa7': (2, 1.4)  # Town Bus
     }
 
     length_adjustment, brake = vehicle_data.get(own_car, (0, 1.0))
@@ -388,6 +389,7 @@ def get_vehicle_redline(c):
         b'\xbe\xa1e': 13000,
         b'?!?': 2000,  # TSV8
         b'\xcf\xee\x83': 3000,  # TSV8
+        b'Gb\xa7': 2000  # Town Bus
     }
 
     return redline_dict.get(c, 7000)
@@ -402,6 +404,7 @@ def get_max_gears(vehicle_model):
         b'\xac\xb1\xb0': (6, 5150),  # Faik Topo
         b'*\x8f-': (6, 6700),
         b'>\x8c\x88': (5, 5600),
+        b'Gb\xa7': (7, 2100)
     }
 
     return vehicle_data.get(vehicle_model, (-1, -1))
@@ -491,7 +494,9 @@ def get_fuel_capa(car):
         b'z\xf8p': 100,  # LCT 300
         b'\x89)\xfa': 57,  # E-Challenger
         b'\xdc\xb8\xb7': 40,  # Formula XR-E
-        b'BF1': 95
+        b'BF1': 95,
+        b'\xf1\xf13': 59,  # Bavaria A20
+        b'Gb\xa7': 295.9  # Town Bus
     }
 
     return fuel_capacity_map.get(car, -1)

@@ -145,6 +145,52 @@ def get_gear(acceleration, brake, gear, rpm, redline, max_gears, vehicle_model):
             else:
                 gear_to_be = gear
 
+
+    elif vehicle_model == b'Gb\xa7': # TownBus
+        if 0.05 < acceleration < 0.2:
+            rpm_set = 1000
+        elif acceleration < 0.4:
+            rpm_set = 1300
+        elif acceleration < 0.6:
+            rpm_set = 1400
+        elif acceleration < 0.7:
+            rpm_set = 1600
+        elif acceleration < 0.8:
+            rpm_set = 1800
+        elif acceleration < 0.9:
+            rpm_set = 1900
+        elif acceleration < 0.95:
+            rpm_set = 2000
+        elif acceleration > 0.94:
+            rpm_set = 2150
+        else:
+            rpm_set = 2000
+        if brake > 0.95:
+            rpm_set = rpm_set + 700
+
+        elif brake > 0.8:
+            rpm_set = rpm_set + 600
+
+        elif brake > 0.5:
+            rpm_set = rpm_set + 400
+
+        if rpm_set > 2150:
+            rpm_set = 2150
+        if acceleration > 0.1:
+            if rpm < rpm_set - 800:
+                gear_to_be = gear - 1
+            elif rpm > rpm_set + 50:
+                gear_to_be = gear + 1
+            else:
+                gear_to_be = gear
+        else:
+            if rpm < rpm_set - 100:
+                gear_to_be = gear - 1
+            elif rpm > rpm_set + 50:
+                gear_to_be = gear + 1
+            else:
+                gear_to_be = gear
+
     elif vehicle_model == b'\xac\xb1\xb0':  # Faik Topo
         if 0.05 < acceleration < 0.2:
             rpm_set = 2200
