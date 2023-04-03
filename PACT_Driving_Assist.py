@@ -1666,70 +1666,44 @@ def head_up_display():
         redline = helpers.get_vehicle_redline(vehicle_model)
         own_max_gears, own_max_rpm = helpers.get_max_gears(vehicle_model)
         own_vehicle_length, own_warn_multi = helpers.get_vehicle_length(vehicle_model)
-    hudheight = 119 + settings.offseth
-    hudwidth = 90 + settings.offsetw
+
+    hudheight, hudwidth = 119 + settings.offseth, 90 + settings.offsetw
+    btn_flags = pyinsim.ISB_DARK | pyinsim.ISB_CLICK
+    speed_display = '^7%.1f MPH' % own_speed_mph if settings.unit == "imperial" else '^7%.1f KPH' % own_speed
+    acc_speed_display = '^3%.1f MPH' % own_speed_mph if settings.unit == "imperial" else '^3%.1f KPH' % own_speed
+    rpm_display = ('^7' if own_rpm < redline else '^1') + '%.1f RPM' % (own_rpm / 1000)
+    send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, rpm_display)
     if collision_warning_intensity == 0:
-        if acc_active and acc_cars_in_front:
-            if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^3%.1f MPH' % own_speed_mph)
-                acc_set_speed_mph = acc_set_speed * 0.621
-                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed_mph)
-            else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^3%.1f KPH' % own_speed)
-                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed)
-            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 10, 3, 5, '^7+')
-            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 7, 3, 5, '^7-')
-        elif acc_active:
-            if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^2%.1f MPH' % own_speed_mph)
-                acc_set_speed_mph = acc_set_speed * 0.621
-                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed_mph)
-            else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^2%.1f KPH' % own_speed)
-                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed)
-            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 10, 3, 5, '^7+')
-            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 7, 3, 5, '^7-')
-        else:
-            if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^7%.1f MPH' % own_speed_mph)
-            else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
-                            '^7%.1f KPH' % own_speed)
-        if own_rpm < redline:
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
-        else:
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1%.1f RPM' % (own_rpm / 1000))
+        if acc_active:
+            acc_set_speed_display = '^2%.0f' % (acc_set_speed * 0.621 if settings.unit == "imperial" else acc_set_speed)
+            send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, acc_set_speed_display)
+            send_button(82, btn_flags, hudheight + 3, hudwidth - 10, 3, 5, '^7+')
+            send_button(83, btn_flags, hudheight + 3, hudwidth - 7, 3, 5, '^7-')
+            speed_display = acc_speed_display if acc_cars_in_front else '^2' + speed_display[2:]
+        send_button(10, btn_flags, hudheight, hudwidth, 13, 8, speed_display)
 
-    elif collision_warning_intensity == 1:
-        send_button(10, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 8, '^1<< ---')
-        send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
-
-    elif collision_warning_intensity > 1:
-        if timer_collision_warning == 1:
-            send_button(10, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 8, '^1<< ---')
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
+    elif collision_warning_intensity > 0:
+        warning_display = '^1<< ---', '^1--- >>'
+        if collision_warning_intensity == 1 or timer_collision_warning == 1:
+            send_button(10, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 8, warning_display[0])
+            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, warning_display[1])
         elif timer_collision_warning == 2:
-            send_button(10, pyinsim.ISB_LIGHT, hudheight, hudwidth, 13, 8, '^1<< ---')
-            send_button(11, pyinsim.ISB_LIGHT, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
+            send_button(10, pyinsim.ISB_LIGHT, hudheight, hudwidth, 13, 8, warning_display[0])
+            send_button(11, pyinsim.ISB_LIGHT, hudheight, hudwidth + 13, 13, 8, warning_display[1])
         if timer_collision_warning == 0:
             timer_collision_warning = 2
 
     if settings.head_up_display == "^2":
+        gear_display = '^7'
         if own_gear > 1:
-            if own_gearbox_mode > 0 and not (settings.automatic_gearbox == "^2" and own_gearbox_mode == 2):
-                send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7%.i' % (own_gear - 1))
-            else:
-                send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7D%.i' % (own_gear - 1))
-
+            gear_display += '' if own_gearbox_mode > 0 and not (
+                    settings.automatic_gearbox == "^2" and own_gearbox_mode == 2) else 'D'
+            gear_display += '%.i' % (own_gear - 1)
         elif own_gear == 1:
-            send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7n')
+            gear_display += 'n'
         elif own_gear == 0:
-            send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7r')
+            gear_display += 'r'
+        send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, gear_display)
 
 
 notifications = ["", "", ""]
@@ -1762,8 +1736,14 @@ def notification(notification_text, duration_in_sec):
 
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
-    if buttons_on_screen[
-        click_id] == 0 or 10 <= click_id <= 15 or 19 <= click_id <= 30 or 33 <= click_id <= 34 or 41 <= click_id <= 43 or click_id == 50 or 51 < click_id <= 54 or click_id == 61 or click_id == 62 or 100 <= click_id <= 110 or 68 <= click_id <= 69 or 71 <= click_id <= 73 or 76 <= click_id <= 81 or 86 <= click_id <= 90:
+
+    valid_click_ids = [
+        *range(10, 16), *range(19, 31), *range(33, 35), *range(41, 44),
+        50, *range(52, 55), 61, 62, *range(100, 111), *range(68, 70),
+        *range(71, 74), *range(76, 82), *range(86, 91)
+    ]
+
+    if click_id in valid_click_ids or buttons_on_screen[click_id] == 0:
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
