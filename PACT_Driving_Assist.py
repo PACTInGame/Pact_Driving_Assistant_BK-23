@@ -238,49 +238,43 @@ def outgauge_packet(outgauge, packet):
         game_time = packet.Time
         own_fuel = packet.Fuel
         if roleplay == "civil":
-            if indicatorSr == 0 and indicators[1] == 1:
-                indicatorSr = 1
-                helpers.playsound_indicator_on()
+            if indicators[1] != indicatorSr:
+                indicatorSr = indicators[1]
+                if indicators[1] == 1:
+                    helpers.playsound_indicator_on()
+                else:
+                    helpers.playsound_indicator_off()
+            elif indicators[0] != indicatorSl:
+                indicatorSl = indicators[0]
+                if indicators[0] == 1:
+                    helpers.playsound_indicator_on()
+                else:
+                    helpers.playsound_indicator_off()
 
-            elif indicatorSr == 1 and indicators[1] == 0:
-                indicatorSr = 0
-                helpers.playsound_indicator_off()
-
-            elif indicatorSl == 0 and indicators[0] == 1:
-                indicatorSl = 1
-                helpers.playsound_indicator_on()
-
-            elif indicatorSl == 1 and indicators[0] == 0:
-                indicatorSl = 0
-                helpers.playsound_indicator_off()
-
-        if packets == 10 and track == b"WE" or track == b"BL":
+        if packets % 10 == 0 and (track == b"WE" or track == b"BL"):
             packets = 0
             if active_lane_prep or active_lane:
                 backup = steering
 
-                steering, actual = active_lane_keeping.calculate_steering(polygons_r, polygons_l, own_x, own_y,
-                                                                          previous_steering, previous_steering2)
-
-                if steering == 0:
-                    steering = backup
+                steer_result = active_lane_keeping.calculate_steering(polygons_r, polygons_l, own_x, own_y,
+                                                                      previous_steering, previous_steering2)
+                steering, actual = steer_result if steer_result[0] != 0 else (backup, steer_result[1])
 
                 if previous_steering3 != actual:
                     previous_steering = previous_steering2
                     previous_steering2 = previous_steering
                 previous_steering3 = actual
-            if active_lane:
-                if own_control_mode == 2:
-                    if not car_in_control:
-                        insim.send(pyinsim.ISP_MST,
-                                   Msg=b"/axis %.1i steer" % VJOY_AXIS2)
 
-                        car_in_control = True
+            if active_lane:
+                if own_control_mode == 2 and not car_in_control:
+                    insim.send(pyinsim.ISP_MST, Msg=b"/axis %.1i steer" % VJOY_AXIS2)
+                    car_in_control = True
+
+                if car_in_control:
                     wheel_support.brake_slow_steer(steering)
             elif car_in_control:
                 car_in_control = False
-                insim.send(pyinsim.ISP_MST,
-                           Msg=b"/axis %.1i steer" % STEER_AXIS)
+                insim.send(pyinsim.ISP_MST, Msg=b"/axis %.1i steer" % STEER_AXIS)
         else:
             packets += 1
 
@@ -454,46 +448,32 @@ def outgauge_packet(outgauge, packet):
             engine_type = "electric"
         else:
             engine_type = "combustion"
-        if 0.1 <= packet.Fuel <= 0.102:
-            if engine_type == "combustion":
+        if engine_type == "combustion":
+            if 0.1 <= packet.Fuel <= 0.102:
                 notification("^3Low Fuel", 1)
-            elif engine_type == "electric":
-                notification("^3Low Battery", 1)
-        if 0.048 <= packet.Fuel <= 0.05:
-            if engine_type == "combustion":
+            elif 0.048 <= packet.Fuel <= 0.05:
                 notification("^1Low Fuel", 1)
-            elif engine_type == "electric":
+        else:
+            if 0.1 <= packet.Fuel <= 0.102:
+                notification("^3Low Battery", 1)
+            elif 0.048 <= packet.Fuel <= 0.05:
                 notification("^1Low Battery", 1)
+
         hudheight = 119 + settings.offseth
         hudwidth = 116 + settings.offsetw
-        if not park_assist_active and packet.Fuel < 0.048:
-            send_button(13, pyinsim.ISB_DARK, hudheight, hudwidth, 4, 4, '^1<<!>>')
-        elif not park_assist_active and 0.05 <= packet.Fuel <= 0.1:
-            send_button(13, pyinsim.ISB_DARK, hudheight, hudwidth, 4, 4, '^3<<!>>')
-        else:
-            del_button(13)
 
-        if pyinsim.DL_BATTERY & packet.ShowLights:
-            own_battery_light = True
-        else:
-            own_battery_light = False
+        if not park_assist_active:
+            if packet.Fuel < 0.048:
+                send_button(13, pyinsim.ISB_DARK, hudheight, hudwidth, 4, 4, '^1<<!>>')
+            elif 0.05 <= packet.Fuel <= 0.1:
+                send_button(13, pyinsim.ISB_DARK, hudheight, hudwidth, 4, 4, '^3<<!>>')
+            else:
+                del_button(13)
 
-        if pyinsim.DL_SIGNAL_R & packet.ShowLights:
-            indicators[1] = 1
-            right_indicator_timer = 10
-        else:
-            indicators[1] = 0
-
-        if pyinsim.DL_SIGNAL_L & packet.ShowLights:
-            indicators[0] = 1
-            left_indicator_timer = 10
-        else:
-            indicators[0] = 0
-
-        if pyinsim.DL_FULLBEAM & packet.ShowLights:
-            own_light = True
-        else:
-            own_light = False
+        own_battery_light = bool(pyinsim.DL_BATTERY & packet.ShowLights)
+        indicators[1] = bool(pyinsim.DL_SIGNAL_R & packet.ShowLights)
+        indicators[0] = bool(pyinsim.DL_SIGNAL_L & packet.ShowLights)
+        own_light = bool(pyinsim.DL_FULLBEAM & packet.ShowLights)
 
         if settings.head_up_display == "^2" or collision_warning_intensity > 0:
             head_up_display()
@@ -1326,26 +1306,24 @@ def send_pdcbtns(angles, distances):
         buttons_to_change = []
         color_to_change = []
 
+        angle_ranges = {
+            (345, 360): 1,
+            (0, 15): 1,
+            (15, 40): 2,
+            (40, 140): 3,
+            (140, 165): 4,
+            (165, 195): 5,
+            (195, 220): 6,
+            (220, 320): 7,
+            (320, 345): 8
+        }
+
+        buttons_to_change = []
         for angle in angles:
-            x = 0
-            if angle >= 345 or angle <= 15:
-                x = 1
-            elif 15 <= angle <= 40:
-                x = 2
-            elif 40 <= angle <= 140:
-                x = 3
-            elif 140 <= angle <= 165:
-                x = 4
-            elif 165 <= angle <= 195:
-                x = 5
-            elif 195 <= angle <= 220:
-                x = 6
-            elif 220 <= angle <= 320:
-                x = 7
-            elif 320 <= angle <= 345:
-                x = 8
-            if x > 0:
-                buttons_to_change.append(x)
+            for r, x in angle_ranges.items():
+                if r[0] <= angle <= r[1]:
+                    buttons_to_change.append(x)
+                    break
 
         for dist in distances:
             if dist == 3:
@@ -1366,6 +1344,7 @@ def send_pdcbtns(angles, distances):
                 color_pdc = "^2"
             color_this_sensor = color_pdc
             color_to_change.append((indend, color_this_sensor))
+
         if 8 not in buttons_to_change:
             send_button(108, pyinsim.ISB_LMB, front, 115, 20, 10, "^2-")
         if 1 not in buttons_to_change:
@@ -1409,6 +1388,7 @@ def send_pdcbtns(angles, distances):
 
             if change == 3:
                 send_button(103, pyinsim.ISB_LMB, 117, sider - move, 20, 10, "{}|".format(color_this_sensor))
+
 
 
 def get_sensor_pdc():

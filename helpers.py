@@ -435,7 +435,7 @@ def calculate_fuel(last_fuel, now_fuel, start_capa, own_capa, speed, dist):
     avg = 99 if dist_km <= 1 else ((start_capa - now_fuel) * own_capa) / dist_km * 100
 
     avg = max(avg, 5)
-    own_range = -1 if dist <= 300 else (now_fuel * own_capa / avg) * 100
+    own_range = -1 if dist_km <= 1 else (now_fuel * own_capa / avg) * 100
 
     avg = min(avg, 99)
     mom = min(mom, 99)
