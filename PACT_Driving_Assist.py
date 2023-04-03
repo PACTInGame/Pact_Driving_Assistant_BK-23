@@ -26,7 +26,6 @@ from shapely.geometry import Polygon, Point
 from vehicle import Vehicle
 import tkinter as tk
 
-
 while not check_LFS_running.is_lfs_running():
     print("Waiting for LFS to start.")
     time.sleep(5)
@@ -134,7 +133,6 @@ own_fuel = 0
 own_fuel_was = 0
 game_time = 0
 own_range = 0
-
 
 # button 100-110 = park distance control
 # button 10-15 = HUD
@@ -466,8 +464,8 @@ def outgauge_packet(outgauge, packet):
                 notification("^1Low Fuel", 1)
             elif engine_type == "electric":
                 notification("^1Low Battery", 1)
-        hudheight = 119+settings.offseth
-        hudwidth = 116+settings.offsetw
+        hudheight = 119 + settings.offseth
+        hudwidth = 116 + settings.offsetw
         if not park_assist_active and packet.Fuel < 0.048:
             send_button(13, pyinsim.ISB_DARK, hudheight, hudwidth, 4, 4, '^1<<!>>')
         elif not park_assist_active and 0.05 <= packet.Fuel <= 0.1:
@@ -974,13 +972,15 @@ def cop():
     if siren or strobe:
         change_strobe()
     if strobe:
-        send_button(34, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 7, 4, '{}Strobe'.format(color_siren_button))
+        send_button(34, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 7, 4,
+                    '{}Strobe'.format(color_siren_button))
     else:
         send_button(34, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 7, 4, 'Strobe')
     if siren:
-        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth+7, 6, 4, '{}Siren'.format(color_siren_button))
+        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth + 7, 6, 4,
+                    '{}Siren'.format(color_siren_button))
     else:
-        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth+7, 6, 4, 'Siren')
+        send_button(33, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth + 7, 6, 4, 'Siren')
 
     if chase and (siren or strobe):
         for car in cars_on_track:
@@ -1012,7 +1012,7 @@ def tracker(x, y, sp):
         str_arrow = "^3<-- LEFT"
     else:
         str_arrow = "error"
-    send_button(61, pyinsim.ISB_DARK, hudheight+5, hudwidth, 13, 5, str_arrow)
+    send_button(61, pyinsim.ISB_DARK, hudheight + 5, hudwidth, 13, 5, str_arrow)
     if sp < own_speed - 25:
         send_button(62, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 5, '^3{} kph'.format(round(sp)))
     else:
@@ -1121,7 +1121,7 @@ def lane_assist():
                     if string_lane == '^3/ \\':
                         del_button(48)
                     string_lane = '^2/ \\'
-                send_button(48, pyinsim.ISB_DARK, 119+settings.offseth, 84+settings.offsetw, 3, 3, string_lane)
+                send_button(48, pyinsim.ISB_DARK, 119 + settings.offseth, 84 + settings.offsetw, 3, 3, string_lane)
             else:
                 del_button(48)
             if not lane_departure_l and not lane_departure_r and buttons_on_screen[47] == 1:
@@ -1140,7 +1140,7 @@ def right_lane_btn():
     global lane_btn_timer, ema_timer
     if buttons_on_screen[46] == 0:
         del_button(48)
-        send_button(46, pyinsim.ISB_DARK, 119+settings.offseth, 120+settings.offsetw, 3, 3, '^1|')
+        send_button(46, pyinsim.ISB_DARK, 119 + settings.offseth, 120 + settings.offsetw, 3, 3, '^1|')
     else:
         del_button(46)
     lane_btn_timer += 30
@@ -1159,7 +1159,7 @@ def left_lane_btn():
     global lane_btn_timer, ema_timer
     if buttons_on_screen[47] == 0:
         del_button(48)
-        send_button(47, pyinsim.ISB_DARK, 119+settings.offseth, 84+settings.offsetw, 3, 3, '^1|')
+        send_button(47, pyinsim.ISB_DARK, 119 + settings.offseth, 84 + settings.offsetw, 3, 3, '^1|')
     else:
         del_button(47)
     lane_btn_timer += 40
@@ -1509,7 +1509,7 @@ def start_park_assistance():
 
             if park_distance < 4:
                 park_assist_active = True
-                send_button(109, pyinsim.ISB_DARK, 119+settings.offseth, 116+settings.offsetw, 4, 4, '^7PDC')
+                send_button(109, pyinsim.ISB_DARK, 119 + settings.offseth, 116 + settings.offsetw, 4, 4, '^7PDC')
                 send_pdcbtns(angles, distances)
 
                 angle = 0
@@ -1671,59 +1671,65 @@ def head_up_display():
     if collision_warning_intensity == 0:
         if acc_active and acc_cars_in_front:
             if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^3%.1f MPH' % own_speed_mph)
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^3%.1f MPH' % own_speed_mph)
                 acc_set_speed_mph = acc_set_speed * 0.621
-                send_button(81, pyinsim.ISB_DARK, hudheight+3, hudwidth-4, 4, 5, '^2%.0f' % acc_set_speed_mph)
+                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed_mph)
             else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^3%.1f KPH' % own_speed)
-                send_button(81, pyinsim.ISB_DARK, hudheight+3, hudwidth-4, 4, 5, '^2%.0f' % acc_set_speed)
-            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight+3, hudwidth-10, 3, 5, '^7+')
-            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight+3, hudwidth-7, 3, 5, '^7-')
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^3%.1f KPH' % own_speed)
+                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed)
+            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 10, 3, 5, '^7+')
+            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 7, 3, 5, '^7-')
         elif acc_active:
             if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^2%.1f MPH' % own_speed_mph)
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^2%.1f MPH' % own_speed_mph)
                 acc_set_speed_mph = acc_set_speed * 0.621
-                send_button(81, pyinsim.ISB_DARK, hudheight+3, hudwidth-4, 4, 5, '^2%.0f' % acc_set_speed_mph)
+                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed_mph)
             else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^2%.1f KPH' % own_speed)
-                send_button(81, pyinsim.ISB_DARK, hudheight+3, hudwidth-4, 4, 5, '^2%.0f' % acc_set_speed)
-            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight+3, hudwidth-10, 3, 5, '^7+')
-            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight+3, hudwidth-7, 3, 5, '^7-')
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^2%.1f KPH' % own_speed)
+                send_button(81, pyinsim.ISB_DARK, hudheight + 3, hudwidth - 4, 4, 5, '^2%.0f' % acc_set_speed)
+            send_button(82, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 10, 3, 5, '^7+')
+            send_button(83, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight + 3, hudwidth - 7, 3, 5, '^7-')
         else:
             if settings.unit == "imperial":
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^7%.1f MPH' % own_speed_mph)
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^7%.1f MPH' % own_speed_mph)
             else:
-                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8, '^7%.1f KPH' % own_speed)
+                send_button(10, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, hudheight, hudwidth, 13, 8,
+                            '^7%.1f KPH' % own_speed)
         if own_rpm < redline:
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth+13, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
+            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^7%.1f RPM' % (own_rpm / 1000))
         else:
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth+13, 13, 8, '^1%.1f RPM' % (own_rpm / 1000))
+            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1%.1f RPM' % (own_rpm / 1000))
 
     elif collision_warning_intensity == 1:
         send_button(10, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 8, '^1<< ---')
-        send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth+13, 13, 8, '^1--- >>')
+        send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
 
     elif collision_warning_intensity > 1:
         if timer_collision_warning == 1:
             send_button(10, pyinsim.ISB_DARK, hudheight, hudwidth, 13, 8, '^1<< ---')
-            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth+13, 13, 8, '^1--- >>')
+            send_button(11, pyinsim.ISB_DARK, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
         elif timer_collision_warning == 2:
             send_button(10, pyinsim.ISB_LIGHT, hudheight, hudwidth, 13, 8, '^1<< ---')
-            send_button(11, pyinsim.ISB_LIGHT, hudheight, hudwidth+13, 13, 8, '^1--- >>')
+            send_button(11, pyinsim.ISB_LIGHT, hudheight, hudwidth + 13, 13, 8, '^1--- >>')
         if timer_collision_warning == 0:
             timer_collision_warning = 2
 
     if settings.head_up_display == "^2":
         if own_gear > 1:
             if own_gearbox_mode > 0 and not (settings.automatic_gearbox == "^2" and own_gearbox_mode == 2):
-                send_button(12, pyinsim.ISB_DARK, hudheight+4, hudwidth+26, 4, 4, '^7%.i' % (own_gear - 1))
+                send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7%.i' % (own_gear - 1))
             else:
-                send_button(12, pyinsim.ISB_DARK, hudheight+4, hudwidth+26, 4, 4, '^7D%.i' % (own_gear - 1))
+                send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7D%.i' % (own_gear - 1))
 
         elif own_gear == 1:
-            send_button(12, pyinsim.ISB_DARK, hudheight+4, hudwidth+26, 4, 4, '^7n')
+            send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7n')
         elif own_gear == 0:
-            send_button(12, pyinsim.ISB_DARK, hudheight+4, hudwidth+26, 4, 4, '^7r')
+            send_button(12, pyinsim.ISB_DARK, hudheight + 4, hudwidth + 26, 4, 4, '^7r')
 
 
 notifications = ["", "", ""]
@@ -1731,8 +1737,8 @@ notifications = ["", "", ""]
 
 def notification(notification_text, duration_in_sec):
     global notification_timer, notifications, notification_timer2, notification_timer3
-    hudheight = 127+settings.offseth
-    hudwidth = 90+settings.offsetw
+    hudheight = 127 + settings.offseth
+    hudwidth = 90 + settings.offsetw
     send_to_screen = True
 
     for notes in notifications:
@@ -1747,11 +1753,11 @@ def notification(notification_text, duration_in_sec):
         elif notifications[1] == "":
             notifications[1] = notification_text
             notification_timer2 = duration_in_sec * 5
-            send_button(41, pyinsim.ISB_DARK, hudheight+6, hudwidth, 26, 6, notification_text)
+            send_button(41, pyinsim.ISB_DARK, hudheight + 6, hudwidth, 26, 6, notification_text)
         elif notifications[2] == "":
             notifications[2] = notification_text
             notification_timer3 = duration_in_sec * 5
-            send_button(42, pyinsim.ISB_DARK, hudheight+13, hudwidth, 26, 6, notification_text)
+            send_button(42, pyinsim.ISB_DARK, hudheight + 13, hudwidth, 26, 6, notification_text)
 
 
 def send_button(click_id, style, t, l, w, h, text):
@@ -1922,26 +1928,16 @@ def open_menu():
 
 
 def close_menu():
-    x = 19
-    for i in range(11):
-        del_button(x + i)
-    del_button(41)
-    del_button(42)
-    del_button(43)
-    del_button(50)
-    del_button(51)
-    del_button(66)
-    del_button(67)
-    del_button(68)
-    del_button(69)
-    del_button(71)
-    del_button(72)
-    del_button(73)
-    del_button(86)
-    del_button(87)
-    del_button(88)
-    del_button(89)
-    del_button(90)
+    button_ids = [
+        41, 42, 43, 50, 51, 66, 67, 68, 69, 71, 72, 73, 86, 87, 88, 89, 90
+    ]
+
+    for i in range(19, 30):
+        del_button(i)
+
+    for button_id in button_ids:
+        del_button(button_id)
+
     send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
     get_settings.write_settings(settings)
 
@@ -1958,6 +1954,54 @@ def change_setting(sett):
 bus_next_stop_sound = True
 bus_route_sound = True
 bus_door_sound = True
+
+
+# def on_click_preview_gpt(insim, btc):
+#     global settings, strobe, siren, collision_warning_not_cop
+#     global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
+#     global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed
+#
+#     def open_menu_case():
+#         open_menu()
+#
+#     def offseth_decrease():
+#         settings.offseth -= 1
+#
+#     def offseth_increase():
+#         settings.offseth += 1
+#
+#     def offsetw_increase():
+#         settings.offsetw += 1
+#
+#     def offsetw_decrease():
+#         settings.offsetw -= 1
+#
+#     def toggle_unit():
+#         settings.unit = "imperial" if settings.unit == "metric" else "metric"
+#         open_menu()
+#
+#     def acc_set_speed_increase():
+#         nonlocal acc_set_speed
+#         acc_set_speed = min(acc_set_speed + 5 - (acc_set_speed % 5), 130)
+#
+#     def acc_set_speed_decrease():
+#         nonlocal acc_set_speed
+#         acc_set_speed = max(acc_set_speed - 5 - (acc_set_speed % 5), 30)
+#
+#     click_actions = {
+#         30: open_menu_case,
+#         87: offseth_decrease,
+#         88: offseth_increase,
+#         89: offsetw_increase,
+#         90: offsetw_decrease,
+#         86: toggle_unit,
+#         82: acc_set_speed_increase,
+#         83: acc_set_speed_decrease,
+#     }
+#
+#     action = click_actions.get(btc.ClickID)
+#     if action:
+#         action()
 
 
 def on_click(insim, btc):
@@ -1994,7 +2038,8 @@ def on_click(insim, btc):
     elif btc.ClickID == 10:
 
         if controller_throttle != -1 and controller_brake != -1 and num_joystick != -1:
-            if (29 < own_speed < 131 or (own_speed < 131 and acc_cars_in_front) or acc_active) and own_control_mode == 2:
+            if (29 < own_speed < 131 or (
+                    own_speed < 131 and acc_cars_in_front) or acc_active) and own_control_mode == 2:
                 if not acc_active:
                     if own_speed < 30:
                         acc_set_speed = 30
@@ -2527,8 +2572,6 @@ def fuel_hud():
             button_label = '^7calculating'
     elif settings.bc == "off":
         send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h + 6, hudwidth - 3, 3, 3, 'BC')
-
-
 
     if button_label:
         send_button(76, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, h, hudwidth, 13, 6, button_label)
