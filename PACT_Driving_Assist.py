@@ -154,6 +154,7 @@ own_range = 0
 # button 76-80 = fuel stuff
 # button 81-85 = ACC
 # button 86-90 = Menu
+# button 91 = hide_mouse
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist

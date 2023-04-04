@@ -145,7 +145,6 @@ def get_gear(acceleration, brake, gear, rpm, redline, max_gears, vehicle_model):
             else:
                 gear_to_be = gear
 
-
     elif vehicle_model == b'Gb\xa7': # TownBus
         if 0.05 < acceleration < 0.2:
             rpm_set = 1000
