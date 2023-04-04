@@ -4,7 +4,7 @@ import helpers
 import pyinsim
 from park_assist import calc_polygon_points
 from shapely.geometry import Polygon
-
+import hud_window
 
 def get_size_of_object(index):
     if index == 96:
@@ -71,6 +71,15 @@ def message_out(insim, axm):
 
 def insim_state(insim, sta):
     print(b"Currently driving on Track: " + sta.Track)
+    insim.send(pyinsim.ISP_BTN,
+               ReqI=255,
+               ClickID=1,
+               BStyle=40,
+               T=5,
+               L=5,
+               W=90,
+               H=119,
+               Text=b"text.encode()")
     insim.send(pyinsim.ISP_TINY, ReqI=255, SubT=pyinsim.TINY_AXM)
 
 

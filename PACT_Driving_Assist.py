@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import math
 import pyautogui
+from pygame import mouse
+
 import PSC
 import active_lane_keeping
 import bus_routes
@@ -133,7 +135,7 @@ own_fuel = 0
 own_fuel_was = 0
 game_time = 0
 own_range = 0
-
+hide_mouse = True
 # button 100-110 = park distance control
 # button 10-15 = HUD
 # button 16 = notifications
@@ -773,17 +775,28 @@ def check_adaptive_cruise_control():
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
 
+stopped = False
+
 
 def get_car_data(insim, MCI):
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
     global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive, own_fuel_was
     global own_fuel_avg, own_fuel_moment, dist_travelled, own_range, own_fuel_start, own_fuel_start_capa, own_fuel_capa
+    global stopped
 
     if time.time() - time_last_check > 0.1:
         time_last_check = time.time()
         cars_previous_speed = temp_previous_speed
         temp_previous_speed = []
+        if stopped:
+            if own_speed_mci > 5:
+                stopped = False
+                close_menu()
+        else:
+            if own_speed_mci < 5:
+                stopped = True
+                close_menu()
 
         for i, j in enumerate(cars_on_track):
 
@@ -1711,20 +1724,26 @@ def send_button(click_id, style, t, l, w, h, text):
     valid_click_ids = [
         *range(10, 16), *range(19, 31), *range(33, 35), *range(41, 44),
         50, *range(52, 55), 61, 62, *range(100, 111), *range(68, 70),
-        *range(71, 74), *range(76, 82), *range(86, 91)
+        *range(71, 74), *range(76, 82), *range(86, 92)
     ]
+    flags = [int(i) for i in str("{0:b}".format(style))]
+    try:
+        if own_control_mode == 0 and own_speed_mci > 5 and hide_mouse and flags[-4] == 1:
+            style = style - 8
+    except:
+        pass
 
     if click_id in valid_click_ids or buttons_on_screen[click_id] == 0:
-        buttons_on_screen[click_id] = 1
-        insim.send(pyinsim.ISP_BTN,
-                   ReqI=255,
-                   ClickID=click_id,
-                   BStyle=style | 3,
-                   T=t,
-                   L=l,
-                   W=w,
-                   H=h,
-                   Text=text.encode())
+         buttons_on_screen[click_id] = 1
+         insim.send(pyinsim.ISP_BTN,
+                    ReqI=255,
+                    ClickID=click_id,
+                    BStyle=style | 3,
+                    T=t,
+                    L=l,
+                    W=w,
+                    H=h,
+                    Text=text.encode())
 
 
 def del_button(click_id):
@@ -1805,11 +1824,18 @@ def open_menu():
                  "{}Lane Assist".format(settings.lane_assist)]
     else:
         color = [pyinsim.ISB_LIGHT, menu_top + 30, 0, 20, 5, "^0Lane Assist".format(settings.lane_assist)]
+    if own_control_mode == 0:
+        if hide_mouse:
+            mouseStr = "^2Hide Mouse while Driving"
+
+        else:
+            mouseStr = "^1Hide Mouse while Driving"
+        send_button(91, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 35, 20, 5,
+                    "{}".format(mouseStr))
     send_button(19, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 0, 20, 5,
                 "^7Menu")
     send_button(86, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top - 5, 20, 15, 5,
                 "{}".format(settings.unit))
-
     send_button(20, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top, 0, 20, 5,
                 "{}Head-Up Display".format(settings.head_up_display))
     send_button(21, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, menu_top + 5, 0, 20, 5,
@@ -1880,7 +1906,7 @@ def open_menu():
 
 def close_menu():
     button_ids = [
-        41, 42, 43, 50, 51, 66, 67, 68, 69, 71, 72, 73, 86, 87, 88, 89, 90
+        41, 42, 43, 50, 51, 66, 67, 68, 69, 71, 72, 73, 86, 87, 88, 89, 90, 91
     ]
 
     for i in range(19, 30):
@@ -1888,8 +1914,12 @@ def close_menu():
 
     for button_id in button_ids:
         del_button(button_id)
-
-    send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
+    if own_speed_mci > 5 and hide_mouse and own_control_mode == 0:
+        del_button(30)
+        send_button(92, pyinsim.ISB_DARK, 100, 0, 7, 5, "Menu")
+    else:
+        del_button(92)
+        send_button(30, pyinsim.ISB_DARK | pyinsim.ISB_CLICK, 100, 0, 7, 5, "Menu")
     get_settings.write_settings(settings)
 
 
@@ -1958,7 +1988,7 @@ bus_door_sound = True
 def on_click(insim, btc):
     global settings, strobe, siren, collision_warning_not_cop
     global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
-    global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed
+    global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed, hide_mouse
 
     if btc.ClickID == 30:
         open_menu()
@@ -1970,7 +2000,11 @@ def on_click(insim, btc):
         settings.offsetw = settings.offsetw + 1
     elif btc.ClickID == 90:
         settings.offsetw = settings.offsetw - 1
-
+    elif btc.ClickID == 91:
+        hide_mouse = not hide_mouse
+        if hide_mouse:
+            notification("^3Buttons avail. when stationary", 5)
+        open_menu()
     elif btc.ClickID == 86:
         if settings.unit == "metric":
             settings.unit = "imperial"
