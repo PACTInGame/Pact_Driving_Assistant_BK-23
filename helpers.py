@@ -353,7 +353,7 @@ def get_vehicle_length(own_car):
 
     length_adjustment, brake = vehicle_data.get(own_car, (0, 1.0))
     length = 0 + length_adjustment
-    print(length, brake)
+
     return length, brake
 
 

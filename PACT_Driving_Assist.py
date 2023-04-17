@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import math
 import pyautogui
-from pygame import mouse
-
 import PSC
 import active_lane_keeping
 import bus_routes
@@ -34,7 +32,7 @@ while not check_LFS_running.is_lfs_running():
 print("LFS.exe seems to be running. Starting!\n\n")
 pyautogui.FAILSAFE = False
 time.sleep(0.2)
-print('PACT DRIVING ASSISTANT VERSION 11.9.9.1')
+print('PACT DRIVING ASSISTANT VERSION 11.9.9.5')
 print('Starting.')
 time.sleep(0.2)
 for i in range(21):
@@ -828,7 +826,7 @@ def get_car_data(insim, MCI):
                                                                                       own_previous_steering) and settings.PSC == "^2" and (
                 vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
-            send_button(70, pyinsim.ISB_DARK, 114, 103, 13, 5, "^3PSC")
+            send_button(70, pyinsim.ISB_DARK, 114+settings.offseth, 103+settings.offsetw, 13, 5, "^3PSC")
             wheel_support.brake_psc_rwd()
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/axis %.1i brake" % VJOY_AXIS)
@@ -1305,8 +1303,6 @@ def timers():
 
 park_assist_active = False
 
-#TODO PSC OFFSET BUTTON
-
 
 def send_pdcbtns(angles, distances):
     global send_timer
@@ -1639,7 +1635,6 @@ def head_up_display():
     global timer_collision_warning, vehicle_model_change, redline, own_vehicle_length, get_brake_dist, own_warn_multi
     global own_max_gears, own_max_rpm, own_fuel_capa, own_fuel_start, own_fuel_start_capa, dist_travelled
     if vehicle_model_change:
-        print(vehicle_model)
         dist_travelled = 0
         own_fuel_start = time
         own_fuel_start_capa = own_fuel
@@ -1716,7 +1711,7 @@ def notification(notification_text, duration_in_sec):
             notifications[2] = notification_text
             notification_timer3 = duration_in_sec * 5
             send_button(42, pyinsim.ISB_DARK, hudheight + 13, hudwidth, 26, 6, notification_text)
-
+# TODO Check if speed mci is used right (divide)
 
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
@@ -2210,7 +2205,6 @@ def message_handling(insim, mso):
         own_player_name_str = str(own_player_name)
         own_player_name_str = own_player_name_str.replace("b'", "")
         own_player_name_str = own_player_name_str.replace("'", "")
-        print(mso.Msg)
         if message_handling_error_count < 8:
             stop_str = "Stop complete.".encode()
             route1_str = (own_player_name_str + "none_route").encode()
