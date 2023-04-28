@@ -5,6 +5,7 @@ import PSC
 import active_lane_keeping
 import bus_routes
 import check_LFS_running
+import cross_traffic_warning
 import cruise_control
 import keyboard
 import load_lane_data
@@ -22,6 +23,7 @@ import park_assist
 import setting
 import wheel_support
 from blind_spot_warning import check_blindspots
+
 from shapely.geometry import Polygon, Point
 from vehicle import Vehicle
 import tkinter as tk
@@ -773,10 +775,22 @@ def check_adaptive_cruise_control():
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
 
+
 stopped = False
 
 
+def cross_traffic():
+    for cars in cars_on_track:
+        if cars.player_id != own_player_id:
+            value = cross_traffic_warning.cross_traffic_warning((cars.x, cars.y, cars.z), cars.heading, cars.speed, (own_x, own_y, own_z),
+                                                        own_heading, own_speed, own_speed)
+
+            if value[0] < 4:
+                print(value[0])
+
+
 def get_car_data(insim, MCI):
+
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
     global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive, own_fuel_was
@@ -826,7 +840,7 @@ def get_car_data(insim, MCI):
                                                                                       own_previous_steering) and settings.PSC == "^2" and (
                 vehicle_model == b"FZ5" or vehicle_model == b'\xb6i\xbd' or vehicle_model == b'>\x8c\x88'):
             pscActive = True
-            send_button(70, pyinsim.ISB_DARK, 114+settings.offseth, 103+settings.offsetw, 13, 5, "^3PSC")
+            send_button(70, pyinsim.ISB_DARK, 114 + settings.offseth, 103 + settings.offsetw, 13, 5, "^3PSC")
             wheel_support.brake_psc_rwd()
             insim.send(pyinsim.ISP_MST,
                        Msg=b"/axis %.1i brake" % VJOY_AXIS)
@@ -851,6 +865,8 @@ def get_car_data(insim, MCI):
             light_assist()
         if settings.lane_assist == "^2" and roleplay != "cop":
             lane_assist()
+        if settings.cross_traffic_warning == "^2" and roleplay != "cop":
+            cross_traffic()
         if collision_warning_intensity == 0 and settings.head_up_display == "^1":
             for i in range(6):
                 del_button(10 + i)
@@ -1400,7 +1416,6 @@ def send_pdcbtns(angles, distances):
                 send_button(103, pyinsim.ISB_LMB, 117, sider - move, 20, 10, "{}|".format(color_this_sensor))
 
 
-
 def get_sensor_pdc():
     sensors = park_assist.sensors(cars_relevant, own_x, own_y, own_heading, vehicle_model, rectangles_object)
     return sensors
@@ -1711,7 +1726,10 @@ def notification(notification_text, duration_in_sec):
             notifications[2] = notification_text
             notification_timer3 = duration_in_sec * 5
             send_button(42, pyinsim.ISB_DARK, hudheight + 13, hudwidth, 26, 6, notification_text)
+
+
 # TODO Check if speed mci is used right (divide)
+
 
 def send_button(click_id, style, t, l, w, h, text):
     global buttons_on_screen
@@ -1729,16 +1747,16 @@ def send_button(click_id, style, t, l, w, h, text):
         pass
 
     if click_id in valid_click_ids or buttons_on_screen[click_id] == 0:
-         buttons_on_screen[click_id] = 1
-         insim.send(pyinsim.ISP_BTN,
-                    ReqI=255,
-                    ClickID=click_id,
-                    BStyle=style | 3,
-                    T=t,
-                    L=l,
-                    W=w,
-                    H=h,
-                    Text=text.encode())
+        buttons_on_screen[click_id] = 1
+        insim.send(pyinsim.ISP_BTN,
+                   ReqI=255,
+                   ClickID=click_id,
+                   BStyle=style | 3,
+                   T=t,
+                   L=l,
+                   W=w,
+                   H=h,
+                   Text=text.encode())
 
 
 def del_button(click_id):
@@ -2195,12 +2213,23 @@ string_bust = b""
 string_bust2 = b""
 
 
+# Arrow Strings:
+# ^L^H\xa1\xf4 up
+# ^L^H\xa1\xf5 down
+# ^L^H\xa1\xf6 left
+# ^L^H\xa1\xf7 right
+# ^L^H\xa1\xf8 upleft
+# ^L^H\xa1\xf9 upright
+# ^L^H\xa1\xfa downleft
+# ^L^H\xa1\xfb downright
+
 def message_handling(insim, mso):
     global siren, strobe, chase, player_id_to_track, person_chased, message_handling_error_count, current_bus_route
     global string_bust, string_bust2
 
     if mso.Msg == b'PACT Driving Assistant Active':
         print("Connection to LFS sucessful!")
+    print(mso.Msg)
     try:
         own_player_name_str = str(own_player_name)
         own_player_name_str = own_player_name_str.replace("b'", "")
