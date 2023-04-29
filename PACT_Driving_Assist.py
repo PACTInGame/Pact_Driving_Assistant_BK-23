@@ -157,6 +157,7 @@ hide_mouse = True
 # button 81-85 = ACC
 # button 86-90 = Menu
 # button 91 = hide_mouse
+# button 92-94 = cross traffic warning
 
 # TODO Cross-Traffic-Warning
 # TODO Lane Keep Assist
@@ -777,25 +778,76 @@ def check_adaptive_cruise_control():
 
 
 stopped = False
+cross_sound_timer = 0
+cross_traffic_brake = False
+
+
+def cross_traffic_intense(angle):
+    global cross_sound_timer
+    button = False
+    if own_speed > 5:
+        if cross_sound_timer == 0:
+            cross_sound_timer = 10
+            play_yield_thread = Thread(target=helpers.collisionwarningsound(settings.collision_warning_sound))
+            play_yield_thread.start()
+        if cross_sound_timer % 2 == 0:
+            button = True
+        if button:
+            if angle > 180:
+                send_button(92, pyinsim.ISB_DARK, 110, 10, 25, 15, b'^1^L^H\xa1n\xa1n')
+            else:
+                send_button(92, pyinsim.ISB_DARK, 110, 165, 25, 15, b'^1^L^H\xa1m\xa1m')
+        else:
+            del_button(92)
+    else:
+        if angle > 180:
+            send_button(92, pyinsim.ISB_DARK, 110, 10, 25, 15, b'^1^L^H\xa1n\xa1n')
+        else:
+            send_button(92, pyinsim.ISB_DARK, 110, 165, 25, 15, b'^1^L^H\xa1m\xa1m')
+
+
+def cross_traffic_pre(angle):
+    if angle > 180:
+        send_button(92, pyinsim.ISB_DARK, 110, 10, 25, 15, b'^3^L^H\xa1n\xa1n')
+    else:
+        send_button(92, pyinsim.ISB_DARK, 110, 165, 25, 15, b'^3^L^H\xa1m\xa1m')
 
 
 def cross_traffic():
+    global cross_traffic_brake
+    cross_traffic_brake = False
     for cars in cars_on_track:
         if cars.player_id != own_player_id:
-            value = cross_traffic_warning.cross_traffic_warning((cars.x, cars.y, cars.z), cars.heading, cars.speed, (own_x, own_y, own_z),
-                                                        own_heading, own_speed, own_speed)
+            value = cross_traffic_warning.cross_traffic_warning((cars.x, cars.y, cars.z), cars.heading, cars.speed,
+                                                                (own_x, own_y, own_z),
+                                                                own_heading, own_speed)
 
-            if value[0] < 4:
-                print(value[0])
+            if value[0] < 1.5:
+                cross_traffic_intense(value[1])
+            elif value[0] < 2.5:
+                cross_traffic_pre(value[1])
+            brake_distance = forward_collision_warning.calc_brake_distance(own_speed, 0, 0, 0, b"FZ5")
+            if value[3] < 0.0:
+                brake_distance += 4
+            elif value[3] < 0.1:
+                brake_distance += 3
+            elif value[3] < 0.2:
+                brake_distance += 2
+            elif value[3] < 0.2:
+                brake_distance += 1
+            if brake_distance > value[2] * own_speed / 3.6 and 5 < own_speed < 130:
+                cross_traffic_brake = True
+
+
+cross_traffic_intensity = False
 
 
 def get_car_data(insim, MCI):
-
     global own_x, own_y, own_heading, cars_previous_speed, temp_previous_speed, time_last_check, own_steering
     global park_assist_active, updated_cars, num_of_packages, num_of_packages_temp, shift_timer, shift_pressed
     global own_speed_mci, own_z, timers_timer, steering, own_previous_steering, pscActive, own_fuel_was
     global own_fuel_avg, own_fuel_moment, dist_travelled, own_range, own_fuel_start, own_fuel_start_capa, own_fuel_capa
-    global stopped
+    global stopped, cross_traffic_intensity
 
     if time.time() - time_last_check > 0.1:
         time_last_check = time.time()
@@ -867,6 +919,11 @@ def get_car_data(insim, MCI):
             lane_assist()
         if settings.cross_traffic_warning == "^2" and roleplay != "cop":
             cross_traffic()
+            if cross_traffic_brake:
+                cross_traffic_intensity = True
+            else:
+                cross_traffic_intensity = False
+
         if collision_warning_intensity == 0 and settings.head_up_display == "^1":
             for i in range(6):
                 del_button(10 + i)
@@ -1262,7 +1319,7 @@ def timers():
     global send_timer, timer_brake_light, timer_turned_right, timer_turned_left, strobe_timer, engine_start_timer
     global timer_update_npl, shift_timer, notification_timer2, notification_timer3, notifications, ema_timer
     global lane_btn_timer, right_indicator_timer, left_indicator_timer, bus_announce_timer, bus_next_stop_timer
-    global message_handling_error_count
+    global message_handling_error_count, cross_sound_timer
 
     message_handling_error_count = decrement_timer(message_handling_error_count, 0.01)
 
@@ -1315,6 +1372,10 @@ def timers():
     if ema_timer == 16 and settings.emergency_assist == "^2":
         play_emawarning2_thread = Thread(target=helpers.emawarningsound2)
         play_emawarning2_thread.start()
+    if cross_sound_timer > 0:
+        if cross_sound_timer == 1:
+            del_button(92)
+        cross_sound_timer = decrement_timer(cross_sound_timer)
 
 
 park_assist_active = False
@@ -1582,7 +1643,7 @@ def collision_warning():
         new_warning = False
         helpers.collisionwarningsound(settings.collision_warning_sound)
 
-    if collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2":
+    if (collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2") or (cross_traffic_intensity and settings.cross_traffic_warning == "^2"):
         if acc_active:
             acc_active = False
             del_button(81)
@@ -1737,7 +1798,7 @@ def send_button(click_id, style, t, l, w, h, text):
     valid_click_ids = [
         *range(10, 16), *range(19, 31), *range(33, 35), *range(41, 44),
         50, *range(52, 55), 61, 62, *range(100, 111), *range(68, 70),
-        *range(71, 74), *range(76, 82), *range(86, 92)
+        *range(71, 74), *range(76, 82), *range(86, 93)
     ]
     flags = [int(i) for i in str("{0:b}".format(style))]
     try:
@@ -1747,6 +1808,8 @@ def send_button(click_id, style, t, l, w, h, text):
         pass
 
     if click_id in valid_click_ids or buttons_on_screen[click_id] == 0:
+        if type(text) == str:
+            text = text.encode()
         buttons_on_screen[click_id] = 1
         insim.send(pyinsim.ISP_BTN,
                    ReqI=255,
@@ -1756,7 +1819,7 @@ def send_button(click_id, style, t, l, w, h, text):
                    L=l,
                    W=w,
                    H=h,
-                   Text=text.encode())
+                   Text=text)
 
 
 def del_button(click_id):
