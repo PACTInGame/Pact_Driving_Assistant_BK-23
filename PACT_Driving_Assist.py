@@ -159,7 +159,7 @@ hide_mouse = True
 # button 91 = hide_mouse
 # button 92-94 = cross traffic warning
 
-# TODO Cross-Traffic-Warning
+
 # TODO Lane Keep Assist
 # TODO Castle hill 1 sound grand tour
 
@@ -1643,7 +1643,8 @@ def collision_warning():
         new_warning = False
         helpers.collisionwarningsound(settings.collision_warning_sound)
 
-    if (collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2") or (cross_traffic_intensity and settings.cross_traffic_warning == "^2"):
+    if (collision_warning_intensity == 3 and settings.automatic_emergency_braking == "^2") or (
+            cross_traffic_intensity and settings.cross_traffic_warning == "^2" and settings.automatic_emergency_braking == "^2"):
         if acc_active:
             acc_active = False
             del_button(81)
@@ -2013,55 +2014,301 @@ bus_route_sound = True
 bus_door_sound = True
 
 
-# def on_click_preview_gpt(insim, btc):
-#     global settings, strobe, siren, collision_warning_not_cop
-#     global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
-#     global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed
-#
-#     def open_menu_case():
-#         open_menu()
-#
-#     def offseth_decrease():
-#         settings.offseth -= 1
-#
-#     def offseth_increase():
-#         settings.offseth += 1
-#
-#     def offsetw_increase():
-#         settings.offsetw += 1
-#
-#     def offsetw_decrease():
-#         settings.offsetw -= 1
-#
-#     def toggle_unit():
-#         settings.unit = "imperial" if settings.unit == "metric" else "metric"
-#         open_menu()
-#
-#     def acc_set_speed_increase():
-#         nonlocal acc_set_speed
-#         acc_set_speed = min(acc_set_speed + 5 - (acc_set_speed % 5), 130)
-#
-#     def acc_set_speed_decrease():
-#         nonlocal acc_set_speed
-#         acc_set_speed = max(acc_set_speed - 5 - (acc_set_speed % 5), 30)
-#
-#     click_actions = {
-#         30: open_menu_case,
-#         87: offseth_decrease,
-#         88: offseth_increase,
-#         89: offsetw_increase,
-#         90: offsetw_decrease,
-#         86: toggle_unit,
-#         82: acc_set_speed_increase,
-#         83: acc_set_speed_decrease,
-#     }
-#
-#     action = click_actions.get(btc.ClickID)
-#     if action:
-#         action()
+def open_menu_case():
+    open_menu()
+
+
+def offseth_decrease():
+    settings.offseth -= 1
+
+
+def offseth_increase():
+    settings.offseth += 1
+
+
+def offsetw_increase():
+    settings.offsetw += 1
+
+
+def offsetw_decrease():
+    settings.offsetw -= 1
+
+
+def toggle_unit():
+    settings.unit = "imperial" if settings.unit == "metric" else "metric"
+    open_menu()
+
+
+def acc_set_speed_increase():
+    global acc_set_speed
+    acc_set_speed = min(acc_set_speed + 5 - (acc_set_speed % 5), 130)
+
+
+def acc_set_speed_decrease():
+    global acc_set_speed
+    acc_set_speed = max(acc_set_speed - 5 - (acc_set_speed % 5), 30)
+
+
+def hide_mouse_case():
+    global hide_mouse
+    hide_mouse = not hide_mouse
+    if hide_mouse:
+        notification("^3Buttons avail. when stationary", 5)
+    open_menu()
+
+
+def toggle_acc():
+    global acc_active, acc_set_speed
+    if controller_throttle != -1 and controller_brake != -1 and num_joystick != -1:
+        if (29 < own_speed < 131 or (
+                own_speed < 131 and acc_cars_in_front) or acc_active) and own_control_mode == 2:
+            if not acc_active:
+                if own_speed < 30:
+                    acc_set_speed = 30
+                else:
+                    acc_set_speed = own_speed
+            acc_active = not acc_active
+        else:
+            notification("ACC not available!", 3)
+    else:
+        notification("ACC not set up!", 3)
+    if not acc_active:
+        del_button(81)
+        del_button(82)
+        del_button(83)
+    if acc_active and own_control_mode == 2:
+
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i brake" % VJOY_AXIS)
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i throttle" % VJOY_AXIS1)
+    elif own_control_mode == 2:
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i brake" % BRAKE_AXIS)
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/axis %.1i throttle" % THROTTLE_AXIS)
+
+
+def toggle_boardcomputer():
+    if settings.bc == "average":
+        settings.bc = "moment"
+    elif settings.bc == "moment":
+        settings.bc = "range"
+    elif settings.bc == "range":
+        settings.bc = "off"
+    elif settings.bc == "off":
+        settings.bc = "average"
+    get_settings.write_settings(settings)
+
+
+def toggle_auto_indicators():
+    global auto_indicators
+    auto_indicators = change_setting(auto_indicators)
+
+
+def toggle_auto_siren():
+    global auto_siren
+    auto_siren = change_setting(auto_siren)
+
+
+def toggle_image_hud():
+    settings.image_hud = change_setting(settings.image_hud)
+
+
+def toggle_stability_control():
+    settings.PSC = change_setting(settings.PSC)
+
+
+def toggle_collision_warning_sound():
+    if settings.collision_warning_sound < 5:
+        settings.collision_warning_sound = settings.collision_warning_sound + 1
+
+    else:
+        settings.collision_warning_sound = 1
+    helpers.playsound(settings.collision_warning_sound)
+
+
+def toggle_get_aeb_brake_dist():
+    global get_brake_dist, own_warn_multi, measure_param
+    get_brake_dist = True
+    own_warn_multi = 1.0
+    measure_param = [0, 0, 0, 0]
+    del_button(66)
+    del_button(67)
+    open_menu()
+
+
+def toggle_head_up_display():
+    settings.head_up_display = change_setting(settings.head_up_display)
+
+
+def toggle_collision_warning():
+    global collision_warning_not_cop
+    settings.forward_collision_warning = change_setting(settings.forward_collision_warning)
+    if roleplay != "cop":
+        collision_warning_not_cop = settings.forward_collision_warning
+
+
+def toggle_blind_spot_warning():
+    settings.blind_spot_warning = change_setting(settings.blind_spot_warning)
+
+
+def toggle_cross_traffic_warning():
+    settings.cross_traffic_warning = change_setting(settings.cross_traffic_warning)
+
+
+def toggle_light_assist():
+    settings.light_assist = change_setting(settings.light_assist)
+
+
+def toggle_emergency_assist():
+    settings.emergency_assist = change_setting(settings.emergency_assist)
+
+
+def toggle_lane_assist():
+    settings.lane_assist = change_setting(settings.lane_assist)
+    if settings.lane_assist == "^1":
+        del_button(46)
+        del_button(47)
+        del_button(48)
+
+
+def toggle_park_assist():
+    settings.park_distance_control = change_setting(settings.park_distance_control)
+
+
+def toggle_auto_brake():
+    settings.automatic_emergency_braking = change_setting(settings.automatic_emergency_braking)
+
+
+def toggle_warning_distance():
+    if settings.collision_warning_distance == "early":
+        settings.collision_warning_distance = "medium"
+    elif settings.collision_warning_distance == "medium":
+        settings.collision_warning_distance = "late"
+    else:
+        settings.collision_warning_distance = "early"
+
+
+def toggle_lane_assist_intensity():
+    if settings.lane_dep_intensity == "early":
+        settings.lane_dep_intensity = "normal"
+    elif settings.lane_dep_intensity == "normal":
+        settings.lane_dep_intensity = "reduced"
+    else:
+        settings.lane_dep_intensity = "early"
+
+
+def toggle_auto_gearbox():
+    settings.automatic_gearbox = change_setting(settings.automatic_gearbox)
+
+
+def toggle_cop_aid_system():
+    global siren, strobe
+    settings.cop_aid_system = change_setting(settings.cop_aid_system)
+    del_button(33)
+    del_button(34)
+    if siren or strobe:
+        strobe = False
+
+
+def toggle_siren():
+    change_siren()
+
+
+def toggle_strobe():
+    global strobe
+    strobe = not strobe
+    if not strobe and not text_entry and not shift_pressed:
+        insim.send(pyinsim.ISP_MST,
+                   Msg=b"/press 0")
+
+
+def load_bus_menu_case():
+    if track == b"SO" or track == b"KY" or track == b"FE" or track == b"BL" or track == b"AS" or track == b"WE":
+        load_bus_menu()
+    else:
+        notification("^1No Routes on this Map", 3)
+
+
+def toggle_bus_next_stop_sound():
+    global bus_next_stop_sound
+    bus_next_stop_sound = not bus_next_stop_sound
+    load_bus_menu()
+
+
+def toggle_bus_route_sound():
+    global bus_route_sound
+    bus_route_sound = not bus_route_sound
+    load_bus_menu()
+
+
+def toggle_bus_door_sound():
+    global bus_door_sound
+    bus_door_sound = not bus_door_sound
+    load_bus_menu()
+
+
+def close_menu_case():
+    x = 52
+    del_button(19)
+    for i in range(8):
+        del_button(x + i)
+    close_menu()
 
 
 def on_click(insim, btc):
+    click_actions = {
+        30: open_menu_case,
+        87: offseth_decrease,
+        88: offseth_increase,
+        89: offsetw_increase,
+        90: offsetw_decrease,
+        86: toggle_unit,
+        82: acc_set_speed_increase,
+        83: acc_set_speed_decrease,
+        91: hide_mouse_case,
+        10: toggle_acc,
+        76: toggle_boardcomputer,
+        68: toggle_auto_indicators,
+        69: toggle_auto_siren,
+        71: toggle_image_hud,
+        72: toggle_stability_control,
+        73: toggle_collision_warning_sound,
+        66: toggle_get_aeb_brake_dist,
+        29: close_menu,
+        19: close_menu,
+        20: toggle_head_up_display,
+        21: toggle_collision_warning,
+        22: toggle_blind_spot_warning,
+        23: toggle_cross_traffic_warning,
+        24: toggle_light_assist,
+        25: toggle_emergency_assist,
+        26: toggle_lane_assist,
+        27: toggle_park_assist,
+        41: toggle_auto_brake,
+        42: toggle_warning_distance,
+        50: toggle_lane_assist_intensity,
+        43: toggle_auto_gearbox,
+        28: toggle_cop_aid_system,
+        33: toggle_siren,
+        34: toggle_strobe,
+        51: load_bus_menu_case,
+        52: toggle_bus_next_stop_sound,
+        53: toggle_bus_route_sound,
+        54: toggle_bus_door_sound,
+        59: close_menu_case
+
+    }
+
+    action = click_actions.get(btc.ClickID)
+    if action:
+        action()
+    if 20 <= btc.ClickID <= 28 or 41 <= btc.ClickID <= 43 or btc.ClickID == 50 or 68 <= btc.ClickID <= 69 or 71 <= btc.ClickID <= 73:
+        open_menu()
+
+
+def on_click_old(insim, btc):
     global settings, strobe, siren, collision_warning_not_cop
     global current_bus_route, current_stop, bus_next_stop_sound, bus_route_sound, bus_door_sound, measure_param
     global own_warn_multi, get_brake_dist, auto_indicators, auto_siren, acc_active, acc_set_speed, hide_mouse
@@ -2292,7 +2539,44 @@ def message_handling(insim, mso):
 
     if mso.Msg == b'PACT Driving Assistant Active':
         print("Connection to LFS sucessful!")
-    print(mso.Msg)
+
+    if b" ^L$" in mso.Msg:
+        setting_string = str(mso.Msg).split("$")[-1]
+        if setting_string == "collision warning off'":
+            if settings.forward_collision_warning == "^2":
+                settings.forward_collision_warning = change_setting(settings.forward_collision_warning)
+            notification("^1Collision Warning Off", 3)
+        elif setting_string == "collision warning on'":
+            if settings.forward_collision_warning == "^1":
+                settings.forward_collision_warning = change_setting(settings.forward_collision_warning)
+            notification("^2Collision Warning On", 3)
+        elif setting_string == "acc on'":
+            if not acc_active:
+                toggle_acc()
+            notification("^2ACC On", 3)
+
+        elif setting_string == "acc off'":
+            if acc_active:
+                toggle_acc()
+            notification("^1ACC Off", 3)
+        elif setting_string == "acc up'":
+            acc_set_speed_increase()
+        elif setting_string == "acc down'":
+            acc_set_speed_decrease()
+        elif setting_string == "auto-brake off'":
+            if settings.automatic_emergency_braking == "^2":
+                settings.automatic_emergency_braking = change_setting(settings.automatic_emergency_braking)
+            notification("^1Auto-Brake Off", 3)
+        elif setting_string == "auto-brake on'":
+            if settings.automatic_emergency_braking == "^1":
+                settings.automatic_emergency_braking = change_setting(settings.automatic_emergency_braking)
+            notification("^2Auto-Brake On", 3)
+        elif setting_string == "switch bc":
+            toggle_boardcomputer()
+
+        else:
+            print("unknown setting: " + setting_string)
+            notification("^1Unknown: " + setting_string, 3)
     try:
         own_player_name_str = str(own_player_name)
         own_player_name_str = own_player_name_str.replace("b'", "")
